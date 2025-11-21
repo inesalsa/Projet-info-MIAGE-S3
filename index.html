@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=VT323&family=Fira+Code&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
+    <!-- CodeMirror -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/theme/material-darker.min.css">
@@ -18,36 +19,50 @@
 </head>
 <body>
 
+    <div class="scanlines"></div>
     <canvas id="matrix-background"></canvas>
 
+    <!-- Splash Screen -->
     <div id="splash-terminal">
         <div id="splash-prompt">
             <span id="splash-text"></span>
             <span id="splash-cursor">_</span>
         </div>
+        <div id="splash-credits">/// DEV_NODES: [YURI & INÈS] DETECTED</div>
     </div>
 
+    <!-- Interface Principale -->
     <div id="main-interface">
         
         <header></header>
 
         <div id="analysis-container">
+            <!-- Zone Code -->
             <div id="code-editor-wrapper">
                 <textarea id="code-input"></textarea>
             </div>
+            
+            <!-- Zone Prompt -->
             <div id="prompt-bar">
                 <textarea id="prompt-input" placeholder="Saisissez votre requête d'analyse" rows="1"></textarea>
                 <button id="submit-button" title="Exécuter l'analyse">
                     <i class="fas fa-play"></i>
                 </button>
             </div>
+
+            <!-- Zone Console IA (Réponse) -->
+            <div id="console-output" class="hidden">
+                <div class="console-header">/// RAPPORT D'ANALYSE TERMINÉ_</div>
+                <pre id="ai-response-text"></pre>
+            </div>
         </div>
     </div>
 
+    <!-- La Chenille -->
     <div id="avatar-container">
-    <div id="chat-bubble"></div>
-    <img src="chenille.gif" alt="Chenille" id="chenille-avatar">
-</div>
+        <div id="chat-bubble"></div>
+        <img src="chenille.gif" alt="Chenille" id="chenille-avatar">
+    </div>
 
     <script src="matrix.js"></script>
     <script src="app.js"></script> 

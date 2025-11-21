@@ -160,4 +160,66 @@ document.addEventListener('DOMContentLoaded', () => {
             scheduleNextTalk();
         }, 5000); 
     }
+    // --- 5. Connexion au LLM (Le Roast dans la console) ---
+    const submitButton = document.getElementById('submit-button');
+    const consoleOutput = document.getElementById('console-output');
+    const aiResponseText = document.getElementById('ai-response-text');
+    
+    submitButton.addEventListener('click', async () => {
+        const code = codeEditor.getValue(); 
+        const userPrompt = promptInput.value;
+
+        if (!code.trim()) {
+            // Là on peut utiliser la chenille pour dire que c'est vide, c'est drôle
+            showCustomBubble("Euh... Il est où le code ? Je ne peux pas insulter du vide.");
+            return;
+        }
+
+        // 1. Interface : On montre que ça charge
+        submitButton.disabled = true; 
+        submitButton.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>'; 
+        
+        // On ouvre la console et on met un message d'attente
+        consoleOutput.classList.add('visible');
+        aiResponseText.textContent = "> INITIALISATION DU PROTOCOLE DE JUGEMENT...\n> CHARGEMENT DES INSULTES...";
+
+        try {
+            const response = await fetch('http://localhost:3000/roast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: code, prompt: userPrompt })
+            });
+
+            const data = await response.json();
+            
+            // 2. AFFICHE LA RÉPONSE DANS LA CONSOLE (Pas la bulle)
+            // Effet "Machine à écrire" rapide pour le style
+            typeWriterEffect(data.reply, aiResponseText);
+
+        } catch (error) {
+            aiResponseText.textContent = "ERREUR CRITIQUE : Le serveur a refusé de répondre (ou tu as oublié de lancer 'node server.js').";
+            console.error(error);
+        } finally {
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-play"></i>';
+        }
+    });
+
+    // Petite fonction pour l'effet d'écriture (Optionnel mais stylé)
+    function typeWriterEffect(text, element) {
+        element.textContent = "";
+        let i = 0;
+        const speed = 10; // Vitesse de frappe
+
+        function type() {
+            if (i < text.length) {
+                element.textContent += text.charAt(i);
+                i++;
+                setTimeout(type, speed);
+            }
+        }
+        type();
+    }
+
+    // (Garde ta fonction showCustomBubble en dessous pour l'ambiance)
 });
