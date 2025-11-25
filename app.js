@@ -122,7 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
         "Il fait froid dans le Cloud aujourd'hui, mettez une petite laine.",
         "J'ai essayé de redémarrer ma vie, mais l'écran reste noir.",
         "Pouet.",
-        "La réponse est 42, mais j'ai oublié la question."
+        "La réponse est 42, mais j'ai oublié la question.",
+        "Le Professeur Delbot est recherché pour avoir forcé ses minions à travailler à même le sol !"
     ];
 
     function showBubble() {
@@ -130,17 +131,17 @@ document.addEventListener('DOMContentLoaded', () => {
         bubble.textContent = randomPhrase;
         bubble.classList.add('show');
         
-        // La bulle reste affichée 7 secondes (un peu plus longtemps pour lire)
+        // La bulle reste affichée 20 secondes (un peu plus longtemps pour lire)
         setTimeout(() => {
             bubble.classList.remove('show');
-        }, 7000);
+        }, 20000);
     }
 
-    // Gestion du Timing Aléatoire (1 à 2 minutes)
+    // Gestion du Timing Aléatoire (30s à 1 minute)
     function scheduleNextTalk() {
-        // Calcule un temps aléatoire entre 60000ms (1min) et 120000ms (2min)
-        const minTime = 60000; 
-        const maxTime = 120000;
+        // Calcule un temps aléatoire entre 30000ms (30s) et 60000ms (1min)
+        const minTime = 30000; 
+        const maxTime = 60000;
         const randomDelay = Math.floor(Math.random() * (maxTime - minTime + 1) + minTime);
 
         console.log(`Prochaine phrase dans : ${Math.round(randomDelay/1000)} secondes`);
