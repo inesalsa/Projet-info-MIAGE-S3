@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>// C.Q.C.D_</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Fira+Code&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/theme/material-darker.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/display/placeholder.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <canvas id="matrix-background"></canvas>
+
+    <div id="splash-terminal">
+        <div id="splash-prompt">
+            <span id="splash-text"></span>
+            <span id="splash-cursor">_</span>
+        </div>
+    </div>
+
+    <div id="main-interface">
+        <header></header>
+        <div id="workspace-container">
+            <div id="left-column">
+                <div id="analysis-container">
+                    <div id="code-editor-wrapper">
+                        <textarea id="code-input"></textarea>
+                    </div>
+                    <div id="prompt-bar">
+                        <textarea id="prompt-input" placeholder="Saisissez votre requête d'analyse" rows="1"></textarea>
+                        <button id="submit-button" title="Exécuter l'analyse">
+                            <i class="fas fa-play"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="right-column">
+                <div id="ai-header">
+                    <span class="ai-title">// RAPPORT_IA</span>
+                    <span id="ai-status">EN ATTENTE...</span>
+                </div>
+                <div id="ai-results">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="avatar-container">
+        <div id="chat-bubble"></div>
+        <img src="chenille.gif" alt="Chenille" id="chenille-avatar">
+    </div>
+
+    <div id="matrix-modal" class="hidden">
+        <div class="modal-content">
+            <h3>⚠️ ÉCRASEMENT MÉMOIRE ⚠️</h3>
+            <p>Tu veux vraiment restaurer ce vieux code buggé ?<br>Ton code actuel sera perdu à jamais.</p>
+            <div class="modal-actions">
+                <button id="btn-cancel">ANNULER</button>
+                <button id="btn-confirm">CONFIRMER</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="matrix.js"></script>
+    <script src="app.js"></script> 
+
+</body>
+</html>
