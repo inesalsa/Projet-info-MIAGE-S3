@@ -160,12 +160,16 @@ header { padding: 10px 20px; height: 44px; border-bottom: 1px solid var(--border
     color: var(--matrix-text-light);
     font-family: var(--font-code);
     font-size: 14px;
-    padding: 10px;
+    
+    /* CORRECTION ALIGNEMENT CURSEUR */
+    height: 44px;       /* Hauteur fixe */
+    padding: 11px 10px; /* Padding équilibré pour centrer le texte */
+    line-height: 20px;  /* Hauteur de ligne standard */
+    display: block;     /* Important : pas de flex ici */
+    
     resize: none;
-    overflow-y: auto; 
-    min-height: 30px;
-    height: auto; 
-    max-height: 150px;
+    outline: none;
+    transition: border-color 0.2s;
 }
 #submit-button {
     flex-shrink: 0; 

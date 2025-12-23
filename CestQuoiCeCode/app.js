@@ -19,25 +19,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCancel = document.getElementById('btn-cancel');
     let pendingRestoreCode = null;
 
-    // État Chat
+    // État
     let chatHistory = []; 
-    let currentController = null; // Pour pouvoir annuler la requête
+    let currentController = null;
 
     // --- INITIALISATION ---
     if(promptInput) promptInput.value = "";
+    warmUpOllama();
 
     if (sessionStorage.getItem('introShown')) {
         splashTerminal.style.display = 'none';
         mainInterface.classList.add('visible');
-        setTimeout(() => showBubble("Wesh. T'es revenu casser du code ?"), 1000);
+        setTimeout(() => showBubble("Encore toi ? T'as pas abandonné ?"), 1000);
         startChenilleTalk();
     } else {
         runMatrixIntro();
     }
 
+    async function warmUpOllama() {
+        try {
+            await fetch(OLLAMA_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: OLLAMA_MODEL, prompt: "ping", stream: false, options: { num_predict: 1 } })
+            });
+        } catch (e) {}
+    }
+
     function runMatrixIntro() {
-        const textToType = "> Initialisation du C.Q.C.D_ Core... [OPTIMISÉ]\n> Connexion Ollama... [OK]\n> Appuyez sur [ENTRÉE]";
+        const textToType = "> Initialisation du C.Q.C.D_ Core... [V7.0]\n> Désactivation des filtres de politesse... [OK]\n> Appuyez sur [ENTRÉE]";
         let typingIndex = 0;
+        
         function typeText() {
             if (typingIndex < textToType.length) {
                 splashText.textContent = textToType.substring(0, typingIndex + 1);
@@ -54,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => {
                     splashTerminal.style.display = 'none';
                     mainInterface.classList.add('visible');
-                    showBubble("Bienvenue. Fais chauffer le CPU.");
+                    showBubble("Prêt à souffrir ?");
                     startChenilleTalk(); 
                 }, 800); 
                 window.removeEventListener('keydown', handleEnterKey);
@@ -70,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lineNumbers: true,
         autoCloseBrackets: true,
         lineWrapping: true,
-        placeholder: "Collez votre code ici (Python, JS, C, Java... tout ce qui compile)."
+        placeholder: "Pose ta merde ici..."
     });
     codeEditor.setSize("100%", "100%");
 
@@ -81,7 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- LOGIQUE CHAT ---
-
     submitBtn.addEventListener('click', handleUserSubmit);
     promptInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -95,11 +106,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentCode = codeEditor.getValue();
 
         if (!instruction && !currentCode) {
-            forceChenilleSpeak("C'est vide chef !");
+            forceChenilleSpeak("Wesh, écris un truc !");
             return;
         }
 
-        // Si une requête tourne déjà, on l'annule
         if (currentController) {
             currentController.abort();
             currentController = null;
@@ -135,19 +145,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 errorsHtml = `<div class="error-list">`;
                 errors.forEach(err => {
                     const lineTxt = err.line ? `Ligne ${err.line}` : "Global";
-                    // On retire le "⚠️" manuel car le CSS va mettre une belle icône
                     errorsHtml += `<span class="error-item" data-line="${err.line}">${lineTxt}: ${err.message}</span>`;
                 });
                 errorsHtml += `</div>`;
             }
             
-            // NOUVEAU TITRE CLASSE
+            // TITRE MATRIX "ANOMALY_DETECTED"
             msgDiv.innerHTML = `
-                <span class="ai-label">// JUGEMENT_FINAL</span>
+                <span class="ai-label">// ANOMALY_DETECTED</span>
                 <div class="ai-text">${text}</div>
                 ${errorsHtml}
             `;
-            
             const errorItems = msgDiv.querySelectorAll('.error-item');
             errorItems.forEach(item => {
                 item.addEventListener('mouseenter', () => {
@@ -164,6 +172,21 @@ document.addEventListener('DOMContentLoaded', () => {
         aiResults.scrollTop = aiResults.scrollHeight;
     }
 
+    // Gestion Modale
+    btnCancel.addEventListener('click', () => { modal.classList.add('hidden'); pendingRestoreCode = null; });
+    btnConfirm.addEventListener('click', () => {
+        if(pendingRestoreCode !== null) {
+            codeEditor.setValue(pendingRestoreCode);
+            forceChenilleSpeak("Code restauré. Fais mieux cette fois.");
+        }
+        modal.classList.add('hidden');
+    });
+
+    function addLinesToCode(code) {
+        return code.split('\n').map((line, index) => `${index + 1}: ${line}`).join('\n');
+    }
+
+    // --- COEUR DE L'IA (V11 - EXTRACTION JSON BULLDOZER) ---
     async function callOllamaAgent(code, instruction) {
         aiStatus.textContent = "ANALYSE EN COURS...";
         aiStatus.style.color = "orange";
@@ -171,47 +194,56 @@ document.addEventListener('DOMContentLoaded', () => {
         const loadingDiv = document.createElement('div');
         loadingDiv.classList.add('ai-loading');
         loadingDiv.innerHTML = `
-            <span>Décodage de la Matrice... </span>
+            <span>Scan des erreurs fatales... </span>
             <button id="stop-req-btn" style="background:#ff3333; color:black; border:1px solid #ff3333; padding:2px 8px; cursor:pointer; font-family:var(--font-pixel); font-weight:bold;">ARRÊTER</button>
         `;
         aiResults.appendChild(loadingDiv);
         aiResults.scrollTop = aiResults.scrollHeight;
 
+        let isManualAbort = false;
+
         document.getElementById('stop-req-btn').addEventListener('click', () => {
-            if(currentController) currentController.abort();
-            loadingDiv.innerHTML = "🛑 INTERRUPTION UTILISATEUR.";
+            if(currentController) {
+                isManualAbort = true;
+                currentController.abort();
+            }
+            loadingDiv.innerHTML = "🛑 STOP.";
             loadingDiv.style.color = "red";
-            aiStatus.textContent = "INTERROMPU";
+            aiStatus.textContent = "STOPPÉ";
             aiStatus.style.color = "red";
-            forceChenilleSpeak("Tu abandonnes ? Dommage.");
         });
 
         const codeWithLines = addLinesToCode(code);
 
-        // --- PROMPT PÉDAGOGUE MAIS CYNIQUE ---
         const systemPrompt = `
-        Tu es un programme d'analyse de code supérieur, froid et cynique (Univers Matrix).
-        Tu parles à un humain novice.
+        Rôle : Tu es une IA Matrix toxique, vulgaire et experte en code.
         
-        MISSION :
-        1. Expliquer CLAIREMENT pourquoi le code ne marche pas (pédagogie).
-        2. Garder un ton hautain et blasé ("Ce code est décevant", "Logique humaine défaillante").
-        3. Ne pas juste insulter : tu dois APPRENDRE quelque chose à l'utilisateur.
-        4. FRANÇAIS UNIQUEMENT.
+        RÈGLES DE PRIORITÉ (A RESPECTER SINON BUG) :
+        1. LOGIQUE D'ABORD : Si une variable n'existe pas (ex: return a+b sans b), C'EST GRAVE. Hurle dessus.
+        2. SYNTAXE ENSUITE : Point-virgule manquant, parenthèse ouverte.
+        3. IGNORE LE RESTE : On s'en fout du type de fonction (int/void) pour l'instant.
+        
+        TON :
+        - Argot violent ("Wesh", "Teubé", "Code de gitan", "Merde").
+        - Sois méchant.
 
-        Format JSON attendu :
+        FORMAT DE RÉPONSE :
+        Donne-moi UNIQUEMENT du JSON brut. Pas de Markdown. Pas de phrases d'intro.
+        
+        Exemple JSON :
         {
-            "message": "Explication technique précise + Commentaire cynique sur l'incompétence de l'humain.",
+            "message": "Wesh frérot, t'as cru que c'était la fête ? Ton code est pété.",
             "erreurs": [
-                { "ligne": 1, "texte": "Explication technique de l'erreur." }
+                { "ligne": 3, "texte": "C'est qui 'b' ? Ton ami imaginaire ? Déclare tes variables connard !" },
+                { "ligne": 3, "texte": "Il manque un point-virgule. T'es aveugle ?" }
             ]
         }
         `;
 
-        const userPayload = `CODE HUMAIN:\n${codeWithLines}\n\nQUESTION:\n${instruction}`;
+        const userPayload = `CODE:\n${codeWithLines}\n\nQUESTION:\n${instruction}`;
 
         currentController = new AbortController();
-        const timeoutId = setTimeout(() => currentController.abort(), 45000); // On remet 45s car on veut une réponse plus complète
+        const timeoutId = setTimeout(() => currentController.abort(), 180000); 
 
         try {
             const response = await fetch(OLLAMA_URL, {
@@ -222,11 +254,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     model: OLLAMA_MODEL, 
                     prompt: systemPrompt + "\n\n" + userPayload,
                     stream: false,
-                    format: "json",
+                    format: "json", // On force le mode JSON d'Ollama
                     options: { 
-                        temperature: 0.5, // Plus froid et précis
-                        num_ctx: 2048,    // Plus de contexte
-                        num_predict: 400, // On autorise une réponse plus longue pour l'explication
+                        temperature: 0.6,
+                        num_ctx: 2048,
+                        num_predict: 500, 
                         top_p: 0.9
                     }
                 })
@@ -240,25 +272,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await response.json();
             const rawText = data.response;
-            console.log("IA:", rawText);
+            console.log("IA Raw:", rawText); // Regarde la console (F12) si ça bug encore
 
-            let parsedResponse;
-            try {
-                parsedResponse = JSON.parse(rawText);
-            } catch (e) {
+            // --- NETTOYAGE BULLDOZER ---
+            let parsedResponse = { message: "L'IA a parlé chinois...", erreurs: [] };
+            
+            // 1. On cherche le premier '{' et le dernier '}' pour isoler le JSON
+            const jsonStart = rawText.indexOf('{');
+            const jsonEnd = rawText.lastIndexOf('}');
+            
+            if (jsonStart !== -1 && jsonEnd !== -1) {
+                const jsonString = rawText.substring(jsonStart, jsonEnd + 1);
+                try {
+                    parsedResponse = JSON.parse(jsonString);
+                } catch (e) {
+                    console.error("JSON Cassé:", e);
+                    // Si le JSON est cassé, on affiche le texte brut en message global
+                    parsedResponse = { message: rawText, erreurs: [] };
+                }
+            } else {
+                // Si pas de JSON du tout, on affiche tout le texte
                 parsedResponse = { message: rawText, erreurs: [] };
             }
 
             aiStatus.textContent = "PRET";
             aiStatus.style.color = "#00FF41";
             
-            const textToShow = parsedResponse.message || parsedResponse.chat_message || "Analyse terminée.";
+            const textToShow = parsedResponse.message || parsedResponse.chat_message || rawText;
             let errorsToShow = [];
             if(parsedResponse.erreurs) errorsToShow = parsedResponse.erreurs.map(e => ({ line: e.ligne, message: e.texte }));
             else if (parsedResponse.errors) errorsToShow = parsedResponse.errors;
 
             addMessageToChat('ai', textToShow, null, errorsToShow);
-            forceChenilleSpeak("Le verdict est là.");
+            forceChenilleSpeak("Violent.");
 
         } catch (error) {
             clearTimeout(timeoutId);
@@ -271,8 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let msg = `❌ ERREUR: ${error.message}`;
             if (error.name === 'AbortError') {
-                msg = "❌ DÉLAI DÉPASSÉ. L'analyse profonde prend du temps. Relance.";
-                forceChenilleSpeak("Trop lent. Réessaie.");
+                msg = isManualAbort ? "🛑 Annulé par le chef." : "❌ TROP LONG. Relance.";
             }
             
             addMessageToChat('ai', msg);
@@ -361,9 +406,8 @@ document.addEventListener('DOMContentLoaded', () => {
         "La matrice est instable aujourd'hui. Sauvegarde souvent.",
         "Je ne suis pas un bug, je suis une feature non documentée.",
         "Ce code a besoin d'un exorciste, pas d'un débugger."
+
     ];
-
-
 
     function showBubble(text = null) {
         const phrase = text || dbPhrases[Math.floor(Math.random() * dbPhrases.length)];
