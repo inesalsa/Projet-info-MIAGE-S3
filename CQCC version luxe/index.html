@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C'EST QUOI CE CODE ?</title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Montserrat:wght@300;400;500;600&family=Share+Tech+Mono&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- CodeMirror -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/theme/matrix.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/python/python.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <canvas id="matrix-background"></canvas>
+
+    <!-- HEADER -->
+    <header id="matrix-header">
+        <div class="brand-group">
+            <div class="brand">C'EST QUOI CE CODE ?</div>
+            <div class="sub-brand">LE COACHING CODE DU TER-TER</div>
+        </div>
+        <nav class="top-nav">
+            <span class="nav-link active" data-target="view-landing">ACCUEIL</span>
+            <span class="nav-link" data-target="view-courses">COURS</span>
+            <span class="nav-link" data-target="view-editor">COMPILATEUR</span>
+            <span class="nav-link" data-target="view-gogs">GOGS (GIT)</span>
+            <span class="nav-link" id="btn-profile">PROFIL</span>
+            <span class="highlight-btn" id="btn-login">CONNEXION</span>
+        </nav>
+    </header>
+
+    <!-- MAIN APP CONTAINER -->
+    <main id="app-container">
+
+        <!-- LANDING PAGE -->
+        <section id="view-landing" class="view-section active">
+
+            <!-- HERO -->
+            <div class="hero-section">
+                <h1 class="hero-title">BIENVENUE DANS LA MATRICE</h1>
+                <div class="hero-subtitle">LA VÉRITÉ EST DANS LA SYNTAXE WESH</div>
+
+                <div class="hero-buttons">
+                    <button class="btn-hero" id="btn-enter-now">CODER MAINTENANT</button>
+                    <button class="btn-hero" id="btn-learn-more">VOIR LES COURS</button>
+                </div>
+            </div>
+
+            <div class="laser-separator-container">
+                <div class="laser-line"></div>
+                <div class="laser-flare"></div>
+            </div>
+
+            <!-- 3 CARDS ROW -->
+            <div class="features-grid">
+                <div class="feature-card" id="card-hack">
+                    <div class="card-icon"><i class="fas fa-laptop-code"></i></div>
+                    <h3>ZONE DE CODE</h3>
+                    <p>L'IDE du futur pour compiler tes bêtises.</p>
+                </div>
+                <div class="feature-card center-card" id="card-rabbit">
+                    <div class="card-icon"><i class="fas fa-graduation-cap"></i></div>
+                    <h3>SUIVRE LE COURS</h3>
+                    <p>Apprends les bases avant de casser la prod.</p>
+                </div>
+                <div class="feature-card" id="card-neo">
+                    <div class="card-icon"><i class="fas fa-code-branch"></i></div>
+                    <h3>GOGS LOCAL</h3>
+                    <p>Gère tes versions comme un pro.</p>
+                </div>
+            </div>
+
+            <div class="laser-separator-container">
+                <div class="laser-line"></div>
+                <div class="laser-flare"></div>
+            </div>
+
+            <!-- INFO ROW -->
+            <div class="info-row">
+                <div class="info-left">
+                    <h2>C'EST QUOI CE CODE ?</h2>
+                </div>
+                <div class="info-right">
+                    <p>Ici on code, on compile, et on se fait insulter par l'IA si c'est nul. C'est ça la vraie
+                        formation à la dure. Prêt à devenir un dev solide ?</p>
+                    <button class="btn-box">EN SAVOIR PLUS</button>
+                </div>
+            </div>
+
+            <div class="laser-separator-container">
+                <div class="laser-line"></div>
+            </div>
+
+            <!-- FOOTER ROW -->
+            <div class="footer-grid">
+                <div class="footer-col" id="col-updates">
+                    <div class="col-head">DERNIÈRES MISES À JOUR</div>
+                    <div class="news-item">
+                        <h4>MISTRAL AI INTÉGRÉ</h4>
+                        <p>Le coach est chaud bouillant.</p>
+                    </div>
+                </div>
+                <div class="footer-col" id="col-resources">
+                    <div class="col-head">RESSOURCES</div>
+                    <div class="news-item">
+                        <h4>GUIDE DE SURVIE C</h4>
+                        <p>Pointeurs et malloc pour les nuls.</p>
+                    </div>
+                    <button class="btn-box">ACCÉDER</button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- EDITOR (IDE) -->
+        <section id="view-editor" class="view-section">
+            <div class="internal-header">
+                <h2>COMPILATEUR // ZONE DE GUERRE</h2>
+            </div>
+            <div class="editor-layout">
+                <div class="editor-bar">
+                    <div class="tab-group">
+                        <span class="tab active">main.c</span>
+                        <select id="language-select" class="lang-selector">
+                            <option value="c">C (GCC)</option>
+                            <option value="javascript">JavaScript</option>
+                            <option value="python">Python</option>
+                        </select>
+                    </div>
+                    <button id="btn-compile">COMPILER & JUGER</button>
+                </div>
+                <div id="code-editor-wrapper">
+                    <textarea id="code-input"></textarea>
+                </div>
+                <div id="terminal-output">_En attente de code...</div>
+            </div>
+        </section>
+
+        <!-- GOGS (Git) -->
+        <section id="view-gogs" class="view-section">
+            <div class="internal-header">
+                <h2>GOGS // HISTORIQUE</h2>
+                <div style="font-size:0.8rem; color:#8ab095; margin-top:5px;" id="user-status">Non connecté</div>
+            </div>
+            <div class="gogs-controls" style="text-align:center; margin-bottom: 20px;">
+                <button id="btn-login-gogs" class="btn-box">CONNEXION / CRÉER COMPTE</button>
+            </div>
+            <div id="gogs-timeline-list" class="timeline-container"></div>
+            <div style="text-align:center; padding: 20px;">
+                <button id="btn-gogs-commit" class="btn-hero">PUSH LE COMMIT</button>
+            </div>
+        </section>
+
+        <!-- COURSES -->
+        <section id="view-courses" class="view-section">
+            <div class="internal-header">
+                <h2>COURS & QUIZ</h2>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card" id="btn-gen-quiz">
+                    <div class="card-icon"><i class="fas fa-question-circle"></i></div>
+                    <h3>GÉNÉRER UN QUIZ</h3>
+                    <p>Teste tes connaissances sur le langage actuel.</p>
+                </div>
+                <!-- More course modules can go here -->
+            </div>
+            <div id="quiz-container"
+                style="max-width: 800px; margin: 40px auto; padding: 20px; border: 1px solid rgba(140,180,160,0.2); display:none;">
+                <h3 id="quiz-question" style="color:#e0fff0; margin-bottom:20px;"></h3>
+                <div id="quiz-options" style="display:flex; flex-direction:column; gap:10px;"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- AI OVERLAY -->
+    <div id="ai-trigger" title="Demander au Coach"><i class="fas fa-comment-dots"></i></div>
+    <div id="ai-overlay" class="hidden">
+        <div class="ai-box">
+            <div class="ai-head">LE COACH <span id="close-ai">X</span></div>
+            <div id="ai-chat-content"></div>
+            <input type="text" id="prompt-input" placeholder="Pose ta question (à tes risques et périls)...">
+        </div>
+    </div>
+
+    <script src="matrix.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
