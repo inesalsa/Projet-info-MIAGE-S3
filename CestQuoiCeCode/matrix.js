@@ -16,14 +16,14 @@ for (let x = 0; x < columns; x++) { rainDrops[x] = 1; }
 const draw = () => {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+
     ctx.fillStyle = '#00FF41';
     ctx.font = fontSize + 'px monospace';
-    
+
     for (let i = 0; i < rainDrops.length; i++) {
         const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
         ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
-        
+
         if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {
             rainDrops[i] = 0;
         }

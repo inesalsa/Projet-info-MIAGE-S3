@@ -1,0 +1,339 @@
+{
+    "themes": [
+        {
+            "id": "pointers",
+            "name": "Pointeurs (Hardcore)",
+            "questions": [
+                {
+                    "q": "Analyse ce code et prédit la valeur finale de `a`.",
+                    "code": "int a = 10;\nint *p = &a;\n*p = 20;\n\np = NULL; // Que se passe-t-il ici ?",
+                    "opts": [
+                        "10",
+                        "20",
+                        "Une adresse aléatoire",
+                        "Crash"
+                    ],
+                    "correct": 1,
+                    "explanation": "La ligne `*p = 20` modifie la valeur à l'adresse mémoire de `a`. Donc `a` vaut 20. La ligne suivante met le pointeur à NULL, mais ne change pas `a`."
+                },
+                {
+                    "q": "Ce code compile-t-il ? Si oui, que fait-il ?",
+                    "code": "void *ptr;\nint x = 10;\nptr = &x;\nprintf(\"%d\", *ptr);",
+                    "opts": [
+                        "Affiche 10",
+                        "Erreur de compilation",
+                        "Affiche une adresse",
+                        "Affiche 0"
+                    ],
+                    "correct": 1,
+                    "explanation": "Erreur ! On ne peut pas déréférencer un `void *` directement (`*ptr`). Le compilateur ne sait pas combien d'octets lire (1 ? 4 ? 8 ?). Il faut caster : `*(int*)ptr`."
+                },
+                {
+                    "q": "Quel est le danger majeur de ce code ?",
+                    "code": "int* get_ptr() {\n    int a = 42;\n    return &a;\n}",
+                    "opts": [
+                        "Memory Leak",
+                        "Dangling Pointer",
+                        "Stack Overflow",
+                        "Double Free"
+                    ],
+                    "correct": 1,
+                    "explanation": "Dangling Pointer (Pointeur fou). La variable `a` est locale à la fonction. Elle est détruite (dépilée) à la fin de la fonction. Retourner son adresse revient à donner l'adresse d'une maison qui vient d'être démolie."
+                },
+                {
+                    "q": "Arithmétique : Si `p` vaut `0x1000`, que vaut `p+1` ?",
+                    "code": "long long *p = (long long*)0x1000;\np++;",
+                    "opts": [
+                        "0x1001",
+                        "0x1004",
+                        "0x1008",
+                        "0x1002"
+                    ],
+                    "correct": 2,
+                    "explanation": "Sur une machine 64-bit standard, un `long long` fait 8 octets. Donc `p+1` avance de `sizeof(type)` = 8 octets. Adresse finale : 0x1008."
+                },
+                {
+                    "q": "Confusion Tableau/Pointeur : Quelle expression est FAUSSE ?",
+                    "code": "int tab[5];\nint *p = tab;",
+                    "opts": [
+                        "p[2] == tab[2]",
+                        "*(p+2) == tab[2]",
+                        "&p == &tab",
+                        "p == tab"
+                    ],
+                    "correct": 2,
+                    "explanation": "`p` est une VARIABLE pointeur (elle a sa propre adresse en mémoire). `tab` est une ÉTIQUETTE constante qui représente l'adresse du début du tableau. Donc `&p` (adresse du pointeur) est différente de `&tab` (adresse du tableau)."
+                },
+                {
+                    "q": "Que fait ce pointeur de fonction ?",
+                    "code": "int (*f)(int, int);\nf = &ma_fonction;",
+                    "opts": [
+                        "Déclare un tableau f",
+                        "Déclare un pointeur vers une fonction prenant 2 int",
+                        "Appelle ma_fonction avec 2 int",
+                        "Erreur de syntaxe"
+                    ],
+                    "correct": 1,
+                    "explanation": "C'est la syntaxe pour déclarer un pointeur vers une fonction qui retourne un int et prend deux int en paramètres."
+                },
+                {
+                    "q": "Quelle est la valeur de x ?",
+                    "code": "int arr[] = {10, 20, 30};\nint *p = arr;\nint x = *p++;",
+                    "opts": [
+                        "10",
+                        "20",
+                        "30",
+                        "11"
+                    ],
+                    "correct": 0,
+                    "explanation": "L'opérateur postfix `++` a une priorité plus élevée que `*`, mais le résultat de l'expression est la valeur AVANT incrémentation. Donc `*p` (10) est assigné à `x`, PUIS `p` est incrémenté."
+                }
+            ]
+        },
+        {
+            "id": "allocation",
+            "name": "Allocation (Malloc/Free)",
+            "questions": [
+                {
+                    "q": "Trouve l'erreur fatale dans ce code.",
+                    "code": "char *s = malloc(10);\ns = \"Bonjour\";\nfree(s);",
+                    "opts": [
+                        "Memory Leak",
+                        "Double Free",
+                        "Crash (Invalid Free)",
+                        "Buffer Overflow"
+                    ],
+                    "correct": 2,
+                    "explanation": "Tu as alloué de la mémoire, mais la ligne `s = \"Bonjour\";` écrase le pointeur avec l'adresse d'une chaîne statique (lecture seule). Quand tu fais `free(s)`, tu essaies de libérer la mémoire statique du programme -> CRASH."
+                },
+                {
+                    "q": "Quelle est la différence fondamentale entre malloc et calloc ?",
+                    "code": "int *p1 = malloc(10 * sizeof(int));\nint *p2 = calloc(10, sizeof(int));",
+                    "opts": [
+                        "Aucune",
+                        "p2 contient des zéros",
+                        "p1 est plus rapide",
+                        "p2 est sur la pile"
+                    ],
+                    "correct": 1,
+                    "explanation": "`calloc` (Clear Allocation) met tous les bits de la mémoire allouée à 0. `malloc` te donne la mémoire \"dans l'état\", souvent pleine de déchets (valeurs aléatoires)."
+                },
+                {
+                    "q": "Que se passe-t-il si malloc échoue ?",
+                    "code": "int *big = malloc(9999999999999L);",
+                    "opts": [
+                        "Il retourne NULL",
+                        "Le programme crash",
+                        "Il retourne -1",
+                        "Il lance une exception"
+                    ],
+                    "correct": 0,
+                    "explanation": "En C, pas d'exception. Si plus de RAM, malloc retourne `NULL`. C'est au développeur de vérifier `if (big == NULL)` avant de l'utiliser."
+                },
+                {
+                    "q": "Que fait realloc(ptr, 0) ?",
+                    "code": "char *ptr = malloc(10);\nrealloc(ptr, 0);",
+                    "opts": [
+                        "Redimensionne à 0 octets",
+                        "Équivalent à free(ptr)",
+                        "Crash",
+                        "Renvoie NULL sans libérer"
+                    ],
+                    "correct": 1,
+                    "explanation": "Dans la norme C standard, `realloc(ptr, 0)` est équivalent à `free(ptr)`. C'est un piège classique."
+                },
+                {
+                    "q": "Où est stockée la mémoire allouée dynamiquement ?",
+                    "code": "int *p = malloc(sizeof(int));",
+                    "opts": [
+                        "Stack (Pile)",
+                        "Heap (Tas)",
+                        "Data Segment",
+                        "Code Segment"
+                    ],
+                    "correct": 1,
+                    "explanation": "`p` (le pointeur lui-même) est sur la Stack (variable locale), mais la mémoire vers laquelle il pointe est dans la Heap (le Tas)."
+                }
+            ]
+        },
+        {
+            "id": "recursion",
+            "name": "Récursivité (Inception)",
+            "questions": [
+                {
+                    "q": "Que retourne `f(3)` ?",
+                    "code": "int f(int n) {\n    if (n==0) return 0;\n    return n + f(n-1);\n}",
+                    "opts": [
+                        "3",
+                        "6",
+                        "0",
+                        "Boucle infinie"
+                    ],
+                    "correct": 1,
+                    "explanation": "C'est la somme de 1 à n. f(3) = 3 + f(2) = 3 + 2 + f(1) = 3 + 2 + 1 + 0 = 6."
+                },
+                {
+                    "q": "Quel problème cause ce code ?",
+                    "code": "void infini() {\n    infini();\n}",
+                    "opts": [
+                        "Surchauffe CPU",
+                        "Stack Overflow",
+                        "Heap Overflow",
+                        "Rien"
+                    ],
+                    "correct": 1,
+                    "explanation": "Rien n'arrête la récursion. Chaque appel ajoute une 'stack frame' sur la pile. Tôt ou tard, la pile est pleine et le programme explose (Segfault/Stack Overflow)."
+                },
+                {
+                    "q": "Analysez cette fonction mystère.",
+                    "code": "void mystere(int n) {\n  if (n > 0) {\n    mystere(n/2);\n    printf(\"%d\", n % 2);\n  }\n}",
+                    "opts": [
+                        "Affiche n en binaire",
+                        "Affiche n à l'envers",
+                        "Crash si n=0",
+                        "Boucle infinie"
+                    ],
+                    "correct": 0,
+                    "explanation": "C'est un algorithme classique pour convertir un nombre décimal en binaire. La récursion permet d'afficher les bits dans le bon ordre (du poids fort au poids faible)."
+                }
+            ]
+        },
+        {
+            "id": "strings",
+            "name": "Chaînes de caractères & Tableaux",
+            "questions": [
+                {
+                    "q": "Quelle est la taille de ce tableau ?",
+                    "code": "char str[] = \"Hello\";\nprintf(\"%d\", sizeof(str));",
+                    "opts": [
+                        "5",
+                        "6",
+                        "4",
+                        "8"
+                    ],
+                    "correct": 1,
+                    "explanation": "Une chaîne en C se termine toujours par le caractère nul `\\0`. Donc \"Hello\" prend 5 lettres + 1 caractère nul = 6 octets."
+                },
+                {
+                    "q": "Que fait ce code ?",
+                    "code": "char s1[] = \"A\";\nchar s2[] = \"A\";\nif (s1 == s2) printf(\"Egal\");",
+                    "opts": [
+                        "Affiche Egal",
+                        "N'affiche rien",
+                        "Erreur de compilation",
+                        "Crash"
+                    ],
+                    "correct": 1,
+                    "explanation": "En C, les tableaux se comportent comme des adresses. `s1` et `s2` sont deux tableaux distincts en mémoire à des adresses différentes. `s1 == s2` compare les adresses, pas le contenu. Pour comparer le contenu, utilisez `strcmp`."
+                },
+                {
+                    "q": "Qu'affiche ce code ?",
+                    "code": "char str[10] = \"Hello\";\nstr[0] = 'Y';\nprintf(\"%s\", str);",
+                    "opts": [
+                        "Yello",
+                        "Hello",
+                        "Y",
+                        "Erreur"
+                    ],
+                    "correct": 0,
+                    "explanation": "`str` est un tableau modifiable (sur la stack). On peut changer ses caractères. Donc \"Hello\" devient \"Yello\"."
+                },
+                {
+                    "q": "Différence entre char[] et char* ?",
+                    "code": "char a[] = \"Test\";\nchar *b = \"Test\";",
+                    "opts": [
+                        "Aucune",
+                        "a est modifiable, b est généralement read-only",
+                        "b est modifiable, a est read-only",
+                        "a est sur la Heap"
+                    ],
+                    "correct": 1,
+                    "explanation": "`a` est un tableau copiant les caractères 'T','e','s','t','\\0' sur la pile (modifiable). `b` pointe vers une chaîne littérale souvent stockée en mémoire lecture seule (.rodata). Modifier `b[0]` causerait un Segfault."
+                }
+            ]
+        },
+        {
+            "id": "bitwise",
+            "name": "Bitwise & Binaire (Hacker Mode)",
+            "questions": [
+                {
+                    "q": "Que fait l'opération `x << 1` ?",
+                    "code": "int x = 10; // 0000 1010\nint y = x << 1;",
+                    "opts": [
+                        "Multiplie par 2",
+                        "Divise par 2",
+                        "Ajoute 1",
+                        "Inverse les bits"
+                    ],
+                    "correct": 0,
+                    "explanation": "Le décalage à gauche (`<<`) déplace tous les bits vers la gauche. En binaire, cela équivaut à multiplier par 2. (0000 1010 -> 0001 0100 = 20)."
+                },
+                {
+                    "q": "Que vaut `a ^ a` (XOR) ?",
+                    "code": "int a = 12345;\nint b = a ^ a;",
+                    "opts": [
+                        "12345",
+                        "0",
+                        "1",
+                        "-1"
+                    ],
+                    "correct": 1,
+                    "explanation": "Le XOR (OU exclusif) compare les bits. Si les bits sont identiques, ça donne 0. Comme on compare `a` avec lui-même, tous les bits sont identiques. Résultat : 0."
+                },
+                {
+                    "q": "Que fait `x & 1` ?",
+                    "opts": [
+                        "Vérifie si x est pair/impair",
+                        "Met x à 1",
+                        "Divise x par 2",
+                        "Rien"
+                    ],
+                    "correct": 0,
+                    "explanation": "Cela teste le dernier bit (LSB). Si le dernier bit est 1, le nombre est impair. Si c'est 0, le nombre est pair."
+                }
+            ]
+        },
+        {
+            "id": "structs",
+            "name": "Structures & Unions",
+            "questions": [
+                {
+                    "q": "Quelle est la taille probable de cette struct ?",
+                    "code": "struct Data {\n    char c;\n    int i;\n};",
+                    "opts": [
+                        "5 octets",
+                        "8 octets",
+                        "4 octets",
+                        "12 octets"
+                    ],
+                    "correct": 1,
+                    "explanation": "À cause du 'Padding' (alignement mémoire), le compilateur ajoute souvent 3 octets après le `char` pour que le `int` commence sur une adresse multiple de 4. Donc 1 (char) + 3 (pad) + 4 (int) = 8 octets."
+                },
+                {
+                    "q": "Dans une `union`, comment est gérée la mémoire ?",
+                    "code": "union Data {\n    int i;\n    float f;\n    char str[4];\n};",
+                    "opts": [
+                        "Somme des tailles des membres",
+                        "Taille du plus grand membre",
+                        "Allocation dynamique",
+                        "Taille fixe de 8 octets"
+                    ],
+                    "correct": 1,
+                    "explanation": "Tous les membres d'une `union` partagent la MÊME adresse mémoire. La taille de l'union est donc égale à la taille de son plus grand élément."
+                },
+                {
+                    "q": "Comment accéder au champ 'x' via un pointeur 'p' ?",
+                    "code": "struct Point { int x; int y; };\nstruct Point p1 = {10, 20};\nstruct Point *p = &p1;",
+                    "opts": [
+                        "p.x",
+                        "p->x",
+                        "*p.x",
+                        "p:x"
+                    ],
+                    "correct": 1,
+                    "explanation": "Quand on a un pointeur vers une structure, on utilise l'opérateur flèche `->`. C'est un raccourci pour `(*p).x`."
+                }
+            ]
+        }
+    ]
+}

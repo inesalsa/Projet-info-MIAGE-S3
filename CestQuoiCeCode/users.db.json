@@ -1,0 +1,83 @@
+{
+  "users": [
+    {
+      "id": "bzzwpiaa9vo",
+      "username": "Yuri",
+      "email": "rejiy61009@arugy.com",
+      "password": "1231231231",
+      "data": {
+        "commits": [],
+        "quizHistory": [],
+        "history": {
+          "quizzes": [
+            {
+              "title": "Quiz PYTHON (easy)",
+              "date": "25/12/2025"
+            }
+          ],
+          "courses": [
+            {
+              "title": "Classes & OOP",
+              "date": "25/12/2025"
+            },
+            {
+              "title": "Variables & Mem",
+              "date": "25/12/2025"
+            },
+            {
+              "title": "Streams",
+              "date": "25/12/2025"
+            },
+            {
+              "title": "Héritage",
+              "date": "25/12/2025"
+            },
+            {
+              "title": "Les Pointeurs",
+              "date": "25/12/2025"
+            }
+          ]
+        },
+        "stats": {
+          "questionsAnswered": 1,
+          "totalErrors": 2,
+          "languages": {
+            "python": {
+              "success": 1,
+              "total": 1,
+              "themes": {
+                "lists": {
+                  "success": 1,
+                  "total": 1,
+                  "name": "Listes & Slicing"
+                }
+              }
+            }
+          }
+        },
+        "conversations": [
+          {
+            "id": "1766694871305",
+            "date": 1766694871305,
+            "title": "Discussion...",
+            "codeSnapshot": "coucou(int a)\n  printf(helloworld)",
+            "messages": [
+              {
+                "content": "coucou",
+                "isUser": true,
+                "rating": null,
+                "timestamp": 1766694871305
+              },
+              {
+                "content": "Yo, t'as cru que t'allais me faire le coup du 'coucou' ? J'suis pas ton pote, j'suis Le Chef. T'as balancé un code qui a plus de bugs qu'un Windows 95. Regarde un peu ça.",
+                "isUser": false,
+                "rating": null,
+                "timestamp": 1766694874504
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

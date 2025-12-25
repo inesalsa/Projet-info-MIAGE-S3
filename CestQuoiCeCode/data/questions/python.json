@@ -1,0 +1,242 @@
+{
+    "themes": [
+        {
+            "id": "basics",
+            "name": "Bases Python & Types",
+            "questions": [
+                {
+                    "q": "Que vaut `type(x)` ?",
+                    "code": "x = 10 / 2",
+                    "opts": [
+                        "int",
+                        "float",
+                        "double",
+                        "decimal"
+                    ],
+                    "correct": 1,
+                    "explanation": "En Python 3, l'opérateur de division `/` renvoie TOUJOURS un float, même si le résultat est entier. Pour une division entière, utilisez `//`."
+                },
+                {
+                    "q": "Quel est le résultat ?",
+                    "code": "print(3 * '7')",
+                    "opts": [
+                        "21",
+                        "777",
+                        "Erreur TypeError",
+                        "37"
+                    ],
+                    "correct": 1,
+                    "explanation": "Multiplier une chaîne par un entier N répète la chaîne N fois. C'est magique."
+                },
+                {
+                    "q": "Quelle est la valeur de `bool([])` ?",
+                    "code": "print(bool([]))",
+                    "opts": [
+                        "True",
+                        "False",
+                        "None",
+                        "Error"
+                    ],
+                    "correct": 1,
+                    "explanation": "Une liste vide (tout comme `0`, `\"\"`, `None`) est évaluée comme `False` dans un contexte booléen."
+                },
+                {
+                    "q": "Comment échanger deux variables en une ligne ?",
+                    "code": "a = 5\nb = 10",
+                    "opts": [
+                        "a, b = b, a",
+                        "a = b; b = a",
+                        "swap(a, b)",
+                        "Impossible"
+                    ],
+                    "correct": 0,
+                    "explanation": "Python permet l'unpacking de tuple. `a, b = b, a` crée un tuple `(b, a)` puis l'assigne à `a` et `b`. Élégant."
+                }
+            ]
+        },
+        {
+            "id": "lists",
+            "name": "Listes & Slicing",
+            "questions": [
+                {
+                    "q": "Que fait ce slicing ?",
+                    "code": "L = [0, 1, 2, 3, 4, 5]\nprint(L[::-1])",
+                    "opts": [
+                        "Affiche le dernier élément",
+                        "Inverse la liste",
+                        "Affiche [0, 1]",
+                        "Erreur"
+                    ],
+                    "correct": 1,
+                    "explanation": "La syntaxe `[start:stop:step]`. Un step de `-1` parcourt la liste à l'envers."
+                },
+                {
+                    "q": "Que vaut `L[-1]` ?",
+                    "code": "L = [10, 20, 30]",
+                    "opts": [
+                        "10",
+                        "30",
+                        "0",
+                        "IndexError"
+                    ],
+                    "correct": 1,
+                    "explanation": "Les indices négatifs comptent à partir de la fin. `-1` est le dernier élément, `-2` l'avant-dernier, etc."
+                },
+                {
+                    "q": "Attention aux copies !",
+                    "code": "a = [1, 2, 3]\nb = a\nb.append(4)\nprint(a)",
+                    "opts": [
+                        "[1, 2, 3]",
+                        "[1, 2, 3, 4]",
+                        "Error",
+                        "[4, 1, 2, 3]"
+                    ],
+                    "correct": 1,
+                    "explanation": "En Python, les assignations ne copient pas les objets, elles copient les références. `b` et `a` pointent vers la MÊME liste. Modifier l'un modifie l'autre."
+                },
+                {
+                    "q": "Que fait `nums.pop(0)` ?",
+                    "code": "nums = [10, 20, 30]",
+                    "opts": [
+                        "Supprime le 10",
+                        "Supprime le 30",
+                        "Retourne 0",
+                        "Erreur"
+                    ],
+                    "correct": 0,
+                    "explanation": "`pop(index)` retire et retourne l'élément à l'index donné. `pop(0)` retire le premier élément (ce qui est lent O(n) car il faut décaler tout le reste)."
+                }
+            ]
+        },
+        {
+            "id": "dicts",
+            "name": "Dictionnaires",
+            "questions": [
+                {
+                    "q": "Comment récupérer une valeur sans risquer une erreur ?",
+                    "code": "d = {'a': 1}\nval = ?",
+                    "opts": [
+                        "d['b']",
+                        "d.get('b')",
+                        "d.try('b')",
+                        "d.value('b')"
+                    ],
+                    "correct": 1,
+                    "explanation": "`d['b']` lève une `KeyError` si la clé n'existe pas. `d.get('b')` renvoie `None` (ou une valeur par défaut) sans planter."
+                },
+                {
+                    "q": "Quelles clés sont valides ?",
+                    "opts": [
+                        "Strings et Entiers",
+                        "Listes",
+                        "Dictionnaires",
+                        "Tout objet mutable"
+                    ],
+                    "correct": 0,
+                    "explanation": "Seuls les objets IMMUTABLES (hashables) peuvent être des clés de dictionnaire. Strings, Ints, Tuples sont ok. Listes et Dicts sont interdits."
+                }
+            ]
+        },
+        {
+            "id": "functions",
+            "name": "Fonctions & Lambdas",
+            "questions": [
+                {
+                    "q": "Que fait ce code ?",
+                    "code": "f = lambda x: x ** 2\nprint(f(5))",
+                    "opts": [
+                        "25",
+                        "10",
+                        "5",
+                        "Erreur"
+                    ],
+                    "correct": 0,
+                    "explanation": "C'est une fonction lambda (anonyme). Elle prend `x` et retourne `x` au carré (puissance 2). 5^2 = 25."
+                },
+                {
+                    "q": "Que vaut `args` ici ?",
+                    "code": "def func(*args):\n    print(type(args))\n\nfunc(1, 2, 3)",
+                    "opts": [
+                        "list",
+                        "tuple",
+                        "set",
+                        "dict"
+                    ],
+                    "correct": 1,
+                    "explanation": "`*args` capture un nombre variable d'arguments positionnels sous forme de TUPLE."
+                },
+                {
+                    "q": "Et `**kwargs` ?",
+                    "code": "def func(**kwargs):\n    pass",
+                    "opts": [
+                        "Capture les arguments nommés dans un dict",
+                        "Capture les arguments nommés dans une liste",
+                        "C'est une erreur syntaxique",
+                        "Ça pointe vers une autre fonction"
+                    ],
+                    "correct": 0,
+                    "explanation": "`**kwargs` (Keyword Arguments) capture les arguments nommés (ex: `a=1, b=2`) dans un dictionnaire."
+                }
+            ]
+        },
+        {
+            "id": "oop",
+            "name": "POO & Classes",
+            "questions": [
+                {
+                    "q": "À quoi sert `__init__` ?",
+                    "code": "class Dog:\n    def __init__(self, name):\n        self.name = name",
+                    "opts": [
+                        "C'est le constructeur",
+                        "C'est le destructeur",
+                        "C'est une fonction privée",
+                        "C'est une variable statique"
+                    ],
+                    "correct": 0,
+                    "explanation": "C'est la méthode spéciale appelée automatiquement lors de la création d'une nouvelle instance de la classe. Elle sert à initialiser les attributs."
+                },
+                {
+                    "q": "Que représente `self` ?",
+                    "opts": [
+                        "L'instance courante de l'objet",
+                        "La classe elle-même",
+                        "Un mot clé réservé global",
+                        "Le parent"
+                    ],
+                    "correct": 0,
+                    "explanation": "`self` est une convention (pas un mot clé réservé, mais utilisez TOUJOURS self) qui référence l'objet spécifique sur lequel on appelle la méthode."
+                }
+            ]
+        },
+        {
+            "id": "comprehensions",
+            "name": "Comprehensions (Pythonic)",
+            "questions": [
+                {
+                    "q": "Que génère ce code ?",
+                    "code": "[x for x in range(5) if x % 2 == 0]",
+                    "opts": [
+                        "[0, 1, 2, 3, 4]",
+                        "[0, 2, 4]",
+                        "[1, 3]",
+                        "[2, 4]"
+                    ],
+                    "correct": 1,
+                    "explanation": "C'est une 'List Comprehension'. On prend les nombres de 0 à 4, et on ne garde que les pairs (`x % 2 == 0`). Donc 0, 2, 4."
+                },
+                {
+                    "q": "Quel est le type du résultat ?",
+                    "code": "{x: x*x for x in range(3)}",
+                    "opts": [
+                        "set",
+                        "list",
+                        "dict",
+                        "tuple"
+                    ],
+                    "correct": 2,
+                    "explanation": "Les accolades `{}` avec une syntaxe `clé: valeur` créent une 'Dictionary Comprehension'. Résultat : `{0: 0, 1: 1, 2: 4}`."
+                }
+            ]
+        }
+    ]
+}

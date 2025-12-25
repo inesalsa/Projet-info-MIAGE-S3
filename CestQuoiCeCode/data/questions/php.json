@@ -1,0 +1,133 @@
+{
+    "themes": [
+        {
+            "id": "php_basics",
+            "name": "Bases PHP & Typons",
+            "questions": [
+                {
+                    "q": "Comment concaténer deux chaînes ?",
+                    "code": "$a = \"Hello\";\n$b = \"World\";\n// Résultat dans $c",
+                    "opts": [
+                        "$a + $b",
+                        "$a . $b",
+                        "$a & $b",
+                        "$a - $b"
+                    ],
+                    "correct": 1,
+                    "explanation": "En PHP, le point (`.`) est l'opérateur de concaténation. Le `+` est strictement mathématique."
+                },
+                {
+                    "q": "Que vaut `$x` ?",
+                    "code": "$x = \"1\" + 2;",
+                    "opts": [
+                        "\"12\"",
+                        "3",
+                        "Erreur",
+                        "12"
+                    ],
+                    "correct": 1,
+                    "explanation": "PHP convertit automatiquement la chaîne \"1\" en entier pour réaliser l'addition arithmétique."
+                },
+                {
+                    "q": "Variables statiques dans une fonction",
+                    "code": "function counter() {\n    static $c = 0;\n    echo ++$c;\n}\ncounter();\ncounter();",
+                    "opts": [
+                        "1 1",
+                        "1 2",
+                        "0 1",
+                        "1 0"
+                    ],
+                    "correct": 1,
+                    "explanation": "Une variable `static` conserve sa valeur entre les appels de fonction. Elle n'est initialisée qu'une seule fois."
+                }
+            ]
+        },
+        {
+            "id": "arrays",
+            "name": "Tableaux Interactifs",
+            "questions": [
+                {
+                    "q": "Différence entre tableaux indexés et associatifs ?",
+                    "opts": [
+                        "Aucune (PHP gère tout comme une map)",
+                        "Interactive vs Statique",
+                        "Associatif = Objet",
+                        "Indexé plus rapide obligatoirement"
+                    ],
+                    "correct": 0,
+                    "explanation": "En PHP, tous les tableaux sont en réalité des HashMaps ordonnées. Vous pouvez mélanger indices numériques et clés chaînes sans problème."
+                },
+                {
+                    "q": "Ajouter un élément à la fin du tableau `$arr`",
+                    "code": "$arr = [1, 2];",
+                    "opts": [
+                        "$arr.push(3)",
+                        "$arr[] = 3",
+                        "add($arr, 3)",
+                        "$arr += 3"
+                    ],
+                    "correct": 1,
+                    "explanation": "L'opérateur `$arr[] = valeur` est le moyen le plus idiomatique et rapide d'ajouter un élément à la fin."
+                }
+            ]
+        },
+        {
+            "id": "oop",
+            "name": "Classes & Objets",
+            "questions": [
+                {
+                    "q": "Comment accéder à une méthode parente ?",
+                    "code": "class Bebe extends Maman {\n    function cri() {\n        // Appeler cri() de Maman\n    }\n}",
+                    "opts": [
+                        "super.cri()",
+                        "parent::cri()",
+                        "Maman.cri()",
+                        "this.super.cri()"
+                    ],
+                    "correct": 1,
+                    "explanation": "En PHP, on utilise `parent::nomMethode()` pour accéder au scope de la classe parente."
+                },
+                {
+                    "q": "Visibilité : `protected`",
+                    "opts": [
+                        "Visible partout",
+                        "Visible uniquement dans la classe",
+                        "Visible par la classe et ses héritiers",
+                        "Visible par le package"
+                    ],
+                    "correct": 2,
+                    "explanation": "`public` (partout), `private` (classe seule), `protected` (classe + héritiers)."
+                }
+            ]
+        },
+        {
+            "id": "security",
+            "name": "Sécurité & Web",
+            "questions": [
+                {
+                    "q": "Comment éviter les injections SQL ?",
+                    "code": "$sql = \"SELECT * FROM users WHERE name = '$name'\";",
+                    "opts": [
+                        "Utiliser htmlspecialchars",
+                        "Utiliser addslashes",
+                        "Utiliser des requêtes préparées (PDO)",
+                        "Encode en base64"
+                    ],
+                    "correct": 2,
+                    "explanation": "Seules les requêtes préparées (`$pdo->prepare` + `execute`) garantissent que les données utilisateur ne soient jamais interprétées comme du code SQL."
+                },
+                {
+                    "q": "Que fait `htmlspecialchars` ?",
+                    "opts": [
+                        "Encode les caractères spéciaux en entités HTML",
+                        "Supprime les balises HTML",
+                        "Crypte le mot de passe",
+                        "Vérifie les emails"
+                    ],
+                    "correct": 0,
+                    "explanation": "Ça transforme `<` en `&lt;`, `>` en `&gt;`, etc. Indispensable pour éviter les failles XSS."
+                }
+            ]
+        }
+    ]
+}
