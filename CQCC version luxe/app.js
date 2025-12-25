@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let currentUser = localStorage.getItem('cqcd_user') || null;
     let currentLang = 'c';
+    let lastOutput = "";
+    let lastError = "";
 
     // --- NAVIGATION ---
     const navLinks = document.querySelectorAll('.nav-link');
@@ -43,11 +45,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- BUTTONS MAPPING ---
     document.getElementById('btn-enter-now')?.addEventListener('click', () => switchView('view-editor'));
-    document.getElementById('btn-learn-more')?.addEventListener('click', () => switchView('view-courses'));
     document.getElementById('card-hack')?.addEventListener('click', () => switchView('view-editor'));
     document.getElementById('card-neo')?.addEventListener('click', () => switchView('view-gogs'));
-    document.getElementById('card-rabbit')?.addEventListener('click', () => switchView('view-courses'));
-
     document.getElementById('btn-login')?.addEventListener('click', loginUser);
     document.getElementById('btn-profile')?.addEventListener('click', loginUser);
 
@@ -64,14 +63,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUserUI() {
         const status = document.getElementById('user-status');
         if (status && currentUser) status.textContent = `Connecté en tant que : ${currentUser}`;
-        const btn = document.getElementById('btn-login');
+        const btn = document.getElementById('btn-profile');
         if (btn && currentUser) btn.textContent = currentUser.toUpperCase();
     }
     updateUserUI();
 
     // --- EDITOR LOGIC ---
     const codeEditor = CodeMirror.fromTextArea(document.getElementById('code-input'), {
-        theme: 'matrix',
         mode: 'text/x-csrc',
         lineNumbers: true,
         autoCloseBrackets: true,
@@ -84,71 +82,204 @@ document.addEventListener('DOMContentLoaded', () => {
     langSelect.addEventListener('change', () => {
         currentLang = langSelect.value;
         if (currentLang === 'c') codeEditor.setOption('mode', 'text/x-csrc');
+        if (currentLang === 'cpp') codeEditor.setOption('mode', 'text/x-c++src');
+        if (currentLang === 'csharp') codeEditor.setOption('mode', 'text/x-csharp');
+        if (currentLang === 'java') codeEditor.setOption('mode', 'text/x-java');
         if (currentLang === 'javascript') codeEditor.setOption('mode', 'javascript');
         if (currentLang === 'python') codeEditor.setOption('mode', 'python');
+        if (currentLang === 'php') codeEditor.setOption('mode', 'php');
     });
 
+    // --- SIDE PANEL TOGGLE ---
+    const btnToggleChat = document.getElementById('btn-toggle-chat');
+    const closeSidePanel = document.getElementById('close-side-panel');
+    const mainPanel = document.getElementById('editor-main-panel');
+    const sidePanel = document.getElementById('editor-side-panel');
+    const userInput = document.getElementById('ai-user-input');
+
+    function setPanelState(isOpen) {
+        if (isOpen) {
+            mainPanel.classList.remove('panel-full');
+            mainPanel.classList.add('panel-shrink');
+            sidePanel.classList.remove('panel-closed');
+            sidePanel.classList.add('panel-open');
+        } else {
+            mainPanel.classList.add('panel-full');
+            mainPanel.classList.remove('panel-shrink');
+            sidePanel.classList.add('panel-closed');
+            sidePanel.classList.remove('panel-open');
+        }
+        setTimeout(() => codeEditor.refresh(), 600);
+    }
+
+    btnToggleChat?.addEventListener('click', () => {
+        const isClosed = sidePanel.classList.contains('panel-closed');
+        setPanelState(isClosed);
+    });
+
+    closeSidePanel?.addEventListener('click', () => setPanelState(false));
+
+    // --- COMPILATION LOGIC ---
     const terminalOutput = document.getElementById('terminal-output');
-    document.getElementById('btn-compile')?.addEventListener('click', async () => {
+
+    // Extracted function so AI can use it too
+    async function runCompilation() {
         const code = codeEditor.getValue();
-        terminalOutput.textContent = "> Analyse du code en cours...";
+        // FORCE READ LANGUAGE FROM DOM
+        const currentLangDOM = document.getElementById('language-select').value;
+
+        terminalOutput.textContent = "> Compilation & Execution en cours...";
         terminalOutput.style.color = '#8ab095';
 
-        // Fake local execution for JS (or warning)
-        if (currentLang === 'javascript') {
-            try {
-                // Dangerous in prod, safeish local simulation
-                let output = "";
-                const log = console.log;
-                console.log = (t) => output += t + "\n";
-                eval(code);
-                console.log = log;
-                terminalOutput.textContent = output || "Code exécuté (pas de sortie).";
-                terminalOutput.style.color = '#e0fff0';
-                askAiJudge(code, output, null);
-            } catch (e) {
-                terminalOutput.textContent = `Erreur Runtime: ${e.message}`;
-                terminalOutput.style.color = '#ff8080';
-                askAiJudge(code, null, e.message);
-            }
-            return;
-        }
+        lastOutput = "";
+        lastError = "";
 
-        // Backend Compilation (GCC)
         try {
             const response = await fetch(`${SERVER_URL}/compile`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: code })
+                body: JSON.stringify({
+                    code: code,
+                    language: currentLangDOM
+                })
             });
             const data = await response.json();
-            terminalOutput.textContent = data.output;
-            terminalOutput.style.color = data.success ? '#e0fff0' : '#ff8080';
-
-            // Trigger AI Judgement
-            askAiJudge(code, data.output, data.success ? null : "Erreur de compilation");
+            lastOutput = data.output;
+            if (!data.success) {
+                lastError = "Erreur de compilation/Execution";
+                terminalOutput.style.color = '#ff8080';
+            } else {
+                terminalOutput.style.color = '#e0fff0';
+            }
+            terminalOutput.textContent = lastOutput;
 
         } catch (e) {
-            terminalOutput.textContent = "Serveur hors ligne. Lance 'node server.js'.";
+            terminalOutput.textContent = "Erreur serveur : verifie node server.js (Et redémarre-le !)";
+            terminalOutput.style.color = '#ff8080';
+        }
+    }
+
+    document.getElementById('btn-compile')?.addEventListener('click', runCompilation);
+
+    // --- CHAT SYSTEM LOGIC ---
+    const chatHistory = document.getElementById('ai-chat-history');
+    const btnSend = document.getElementById('btn-send-chat');
+
+    // AUTO-GROW TEXTAREA (Strict Logic)
+    userInput?.addEventListener('input', function () {
+        this.style.height = 'auto'; // Reset
+        const maxHeight = 120;
+        const newHeight = Math.min(this.scrollHeight, maxHeight);
+
+        this.style.height = newHeight + 'px';
+
+        if (this.scrollHeight > maxHeight) {
+            this.style.overflowY = 'auto'; // Show scrollbar ONLY when needed
+        } else {
+            this.style.overflowY = 'hidden';
         }
     });
 
-    async function askAiJudge(code, output, error) {
-        // Automatically ask AI to judge the code
-        const overlay = document.getElementById('ai-overlay');
-        overlay.classList.remove('hidden');
+    function appendMessage(html, isUser) {
+        const div = document.createElement('div');
+        div.className = isUser ? 'ai-msg ai-user' : 'ai-msg ai-system';
+        div.innerHTML = html;
+        chatHistory.appendChild(div);
+        chatHistory.scrollTop = chatHistory.scrollHeight; // Auto-scroll to bottom
+    }
 
-        const aiContent = document.getElementById('ai-chat-content');
-        aiContent.innerHTML += `<div class="msg msg-ai">Attends, je regarde ton code de ${currentLang}...</div>`;
+    async function processAiInteraction() {
+        setPanelState(true);
 
-        const prompt = `
-        Rôle: Tu es un "grand frère de la cité" expert en programmation (C, JS, Python). 
-        Ton style : Argot de cité (wesh, frérot, t'es sérieux ?), tutoiement, légèrement agressif/moqueur si c'est nul, mais bienveillant sur le fond.
-        Tâche : Analyse le code suivant et son résultat.
-        Code : \n${code}\n
-        Sortie/Erreur : \n${output || error}\n
+        // AUTO-COMPILE ON SEND (So AI sees the result)
+        await runCompilation();
+
+        const txt = userInput.value.trim();
+        const code = codeEditor.getValue();
+
+        // FORCE READ LANGUAGE FROM DOM TO BE SURE
+        const langSelectVal = document.getElementById('language-select').value;
+        const langName = langSelectVal.toUpperCase();
+
+        let finalPrompt = "";
+
+        // CASE 1: USER ASKS SOMETHING
+        if (txt) {
+            appendMessage(txt, true);
+            userInput.value = '';
+            userInput.style.height = 'auto';
+
+            finalPrompt = `
+            L'utilisateur te dit : "${txt}"
+            
+             IMPORTANT !!! LE LANGAGE SÉLECTIONNÉ EST : *** ${langName} ***
+            (Ignore tout code qui ressemble à du C, JS ou autre si ce n'est pas du ${langName})
+            
+            Code Actuel : \n${code}\n
+            Résultat de l'exécution (Terminal) : \n${lastOutput || lastError || "Rien"}\n
+
+            TES ORDRES :
+            1. Réponds en JSON STRICT selon le format défini.
+            2. Analyse les variables et la logique UNIQUEMENT pour le langage ${langName}.
+            3. Si le code ressemble à du C mais que le langage est ${langName}, dis-lui qu'il s'est trompé de syntaxe !
+            `;
+        }
+        // CASE 2: EMPTY INPUT -> ANALYZE
+        else {
+            appendMessage("Check mon code stp.", true);
+
+            finalPrompt = `
+             Analyse ce code : \n${code}\n
+             
+             IMPORTANT !!! LE LANGAGE SÉLECTIONNÉ EST : *** ${langName} ***
+             (Si le code n'est pas du ${langName}, c'est une faute grave !)
+             
+             Résultat Terminal : \n${lastOutput || lastError || "Rien"}\n
+             
+             TES ORDRES :
+             1. Réponds en JSON STRICT.
+             2. Si le code est pourri (noms débiles, erreurs, mauvaise syntaxe pour ${langName}) -> Insulte-le.
+             3. Si le code est bien -> Dis "C'est carré".
+             4. VERIFIE L'INDENTATION et les deux-points ':' en Python.
+             `;
+        }
+
+        // Show loading
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'ai-msg ai-system';
+        loadingDiv.innerHTML = '<i class="fas fa-ellipsis-h fa-pulse"></i>';
+        chatHistory.appendChild(loadingDiv);
+
+        const systemPrompt = `
+        Tu es "Le Chef". Pas d'emojis.
+        CONTEXTE : L'utilisateur utilise l'éditeur configuré en : ${langName}.
+        TOUTE RÉPONSE DOIT ÊTRE BASÉE SUR LA SYNTAXE ${langName}.
         
-        Détecte les erreurs, insulte gentiment l'utilisateur si c'est une erreur bête, et explique comment corriger sans donner la solution toute cuite. Donne une note sur 10 (genre "3/10 retourne au charbon").
+        STYLE : Argot de la street, agressif mais juste. Expert technique.
+        RÈGLE D'OR : VARIE TES INSULTES. Ne répète jamais "C'est carré" ou "Massacré". Sois créatif.
+        
+        FORMAT REPONSE : JSON UNIQUEMENT.
+        
+        Structure JSON attendue :
+        {
+            "message": "Ton analyse principale (insultes ou félicitations)...",
+            "errors": [
+                { 
+                    "line": 12, 
+                    "msg": "Syntaxe invalide pour ${langName}", 
+                    "explanation": "Petit cours pédagogique : En ${langName}, on ne met pas de point-virgule (ou autre règle spécifique). Tu confonds avec le C wesh." 
+                }
+            ]
+        }
+        
+        Règles Erreurs :
+        - 'msg' : L'erreur en bref.
+        - 'explanation' : Un court paragraphe PÉDAGOGIQUE (2-3 phrases) qui explique la bonne syntaxe en ${langName}.
+        - ATTENTION PYTHON : 
+           - Regarde si la ligne 'def' ou 'if' ou 'for' se termine par ':'. Si OUI, alors ne dis JAMAIS "deux p-oints manquants".
+           - Si les deux-points sont là, mais que la ligne suivante n'est pas décalée (indentée), alors l'erreur est "Indentation incorrecte".
+           - Ne confonds pas les deux ! ':' présent = Indentation problème. ':' absent = Syntaxe problème.
+        - Si pas d'erreurs : "errors" est [].
         `;
 
         try {
@@ -157,16 +288,119 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
                 body: JSON.stringify({
                     model: "mistral-small-latest",
-                    messages: [{ role: "user", content: prompt }]
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: finalPrompt }
+                    ]
                 })
             });
+
+            chatHistory.removeChild(loadingDiv);
             const data = await response.json();
-            const aiText = data.choices[0].message.content;
-            addAiMessage(aiText);
+            let content = data.choices[0].message.content;
+
+            // PARSE JSON
+            let json = {};
+            try {
+                // Try to clean potential markdown wrappers
+                content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+                json = JSON.parse(content);
+            } catch (e) {
+                // Fallback attempt: find first { and last }
+                try {
+                    const first = content.indexOf('{');
+                    const last = content.lastIndexOf('}');
+                    if (first >= 0 && last > first) {
+                        json = JSON.parse(content.substring(first, last + 1));
+                    } else {
+                        throw new Error("No JSON found");
+                    }
+                } catch (z) {
+                    json = { message: content, errors: [] };
+                }
+            }
+
+            // RENDER MESSAGE
+            appendMessage(json.message, false);
+
+            // RENDER ERRORS
+            if (json.errors && json.errors.length > 0) {
+                const errDiv = document.createElement('div');
+                errDiv.className = 'ai-msg ai-system';
+                errDiv.style.borderColor = '#ff5555';
+                errDiv.innerHTML = '<strong>ERREURS DÉTECTÉES (Clique pour comprendre):</strong><br>';
+
+                json.errors.forEach(err => {
+                    // Container for the error item
+                    const item = document.createElement('div');
+                    item.className = 'error-item'; // Class for easier styling if needed
+                    item.style.marginTop = '8px';
+                    item.style.padding = '8px';
+                    item.style.cursor = 'pointer';
+                    item.style.border = '1px solid rgba(255, 85, 85, 0.3)';
+                    item.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+                    item.style.transition = 'all 0.2s';
+
+                    // The Visible Error Message
+                    const header = document.createElement('div');
+                    header.innerHTML = `<span style="color:#ff5555; font-weight:bold;">Ligne ${err.line}:</span> ${err.msg} <i class="fas fa-chevron-down" style="float:right; opacity:0.7;"></i>`;
+                    item.appendChild(header);
+
+                    // The Hidden Explanation (Mini-Course)
+                    const explanation = document.createElement('div');
+                    explanation.className = 'ai-error-explanation';
+                    explanation.style.display = 'none'; // Hidden by default
+                    explanation.style.marginTop = '10px';
+                    explanation.style.padding = '10px';
+                    explanation.style.background = 'rgba(0,0,0,0.5)';
+                    explanation.style.borderLeft = '2px solid #ff5555';
+                    explanation.style.fontSize = '0.85rem';
+                    explanation.style.color = '#e0fff0';
+                    explanation.innerHTML = `<strong>LE COURS DU CHEF :</strong><br>${err.explanation || "Pas d'explication dispo, débrouille-toi."}`;
+                    item.appendChild(explanation);
+
+                    // CLICK INTERACTION: Toggle Explanation
+                    item.addEventListener('click', (e) => {
+                        // Prevent triggering if clicking inside the explanation itself (optional, but good UX)
+                        // Actually, clicking anywhere on the item should toggle it for ease of use
+                        const isVisible = explanation.style.display === 'block';
+                        explanation.style.display = isVisible ? 'none' : 'block';
+                        header.querySelector('.fa-chevron-down').style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
+                    });
+
+                    // HOVER INTERACTION: Highlight Code
+                    item.addEventListener('mouseenter', () => {
+                        const lineIdx = err.line - 1;
+                        codeEditor.addLineClass(lineIdx, 'background', 'CodeMirror-selected');
+                        // Optional: Scroll only if we really want to, might be annoying if toggling
+                        // codeEditor.scrollIntoView({ line: lineIdx, ch: 0 }, 100); 
+                    });
+
+                    item.addEventListener('mouseleave', () => {
+                        const lineIdx = err.line - 1;
+                        codeEditor.removeLineClass(lineIdx, 'background', 'CodeMirror-selected');
+                    });
+
+                    errDiv.appendChild(item);
+                });
+                chatHistory.appendChild(errDiv);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            }
+
         } catch (e) {
-            addAiMessage("Wesh, mon cerveau a buggé. (Erreur API)");
+            if (chatHistory.contains(loadingDiv)) chatHistory.removeChild(loadingDiv);
+            appendMessage("Wesh le serveur est en PLS. " + e.message, false);
         }
     }
+
+    btnSend?.addEventListener('click', processAiInteraction);
+
+    userInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            processAiInteraction();
+        }
+    });
 
     // --- GOGS LOGIC ---
     const gogsTimeline = document.getElementById('gogs-timeline-list');
@@ -174,13 +408,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!gogsTimeline) return;
         gogsTimeline.innerHTML = '';
         const allCommits = JSON.parse(localStorage.getItem('cqcd_commits_v7') || '[]');
-
-        // Filter by user if needed? For now show all.
         if (allCommits.length === 0) {
-            gogsTimeline.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Aucune version. Pousse du code !</div>';
+            gogsTimeline.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Aucune version.</div>';
             return;
         }
-
         allCommits.forEach(commit => {
             const div = document.createElement('div');
             div.className = 'feature-card';
@@ -190,12 +421,12 @@ document.addEventListener('DOMContentLoaded', () => {
             div.innerHTML = `
                 <h3 style="color:#e0fff0;">${commit.message}</h3>
                 <p style="font-family:'Share Tech Mono'; font-size:0.7rem;">
-                    <span style="color:#66cca0;">USER: ${commit.user || 'Anon'}</span> | 
-                    ${new Date(commit.date).toLocaleString()} | ${commit.hash}
+                    <span style="color:#66cca0;">${commit.user || 'Anon'}</span> | 
+                    ${new Date(commit.date).toLocaleString()}
                 </p>
             `;
             div.addEventListener('click', () => {
-                if (confirm("Revenir à cette version frérot ?")) {
+                if (confirm("Revenir à cette version ?")) {
                     codeEditor.setValue(commit.code);
                     switchView('view-editor');
                 }
@@ -223,118 +454,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('btn-login-gogs')?.addEventListener('click', loginUser);
 
-    // --- AI OVERLAY & VOTING ---
-    const aiTrigger = document.getElementById('ai-trigger');
-    const aiOverlay = document.getElementById('ai-overlay');
-    const closeAi = document.getElementById('close-ai');
-
-    aiTrigger?.addEventListener('click', () => aiOverlay.classList.remove('hidden'));
-    closeAi?.addEventListener('click', () => aiOverlay.classList.add('hidden'));
-
-    const promptInput = document.getElementById('prompt-input');
-    const aiContent = document.getElementById('ai-chat-content');
-
-    function addAiMessage(text) {
-        const msgId = Date.now();
-        const div = document.createElement('div');
-        div.className = 'msg msg-ai';
-        div.innerHTML = `
-            <div style="margin-bottom:5px;">${marked.parse(text)}</div>
-            <div class="vote-area">
-                <button class="btn-vote" onclick="vote(this, 1)">👍</button>
-                <button class="btn-vote" onclick="vote(this, -1)">👎</button>
-            </div>
-        `;
-        aiContent.appendChild(div);
-        aiContent.scrollTop = aiContent.scrollHeight;
-    }
-    // Simple markdown parser mock if library not present
-    const marked = window.marked || { parse: (t) => t };
-
-    window.vote = function (btn, val) {
-        btn.parentElement.innerHTML = `<span style="font-size:0.8rem; color:#66cca0;">Voté ! Merci le sang.</span>`;
-    };
-
-    promptInput?.addEventListener('keypress', async (e) => {
-        if (e.key === 'Enter') {
-            const txt = promptInput.value.trim();
-            if (!txt) return;
-
-            aiContent.innerHTML += `<div class="msg msg-user">${txt}</div>`;
-            promptInput.value = '';
-
-            try {
-                const response = await fetch(MISTRAL_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-                    body: JSON.stringify({
-                        model: "mistral-small-latest",
-                        messages: [
-                            { role: "system", content: "Tu es un assistant codeur 'grand frère de la cité'. Tu parles argot, tu es cash, tu insultes un peu mais tu aides." },
-                            { role: "user", content: txt }
-                        ]
-                    })
-                });
-                const data = await response.json();
-                addAiMessage(data.choices[0].message.content);
-            } catch (e) {
-                addAiMessage("Wesh, erreur réseau.");
-            }
-        }
-    });
-
-    // --- QUIZ GENERATION ---
+    // --- QUIZ (Minified) ---
     document.getElementById('btn-gen-quiz')?.addEventListener('click', async () => {
-        const quizContainer = document.getElementById('quiz-container');
-        quizContainer.style.display = 'block';
-        quizContainer.innerHTML = 'Génération du quiz par le boss...';
-
-        const prompt = `Génère une question QCM sur le langage ${currentLang} pour un débutant. Format JSON: {question: "", options: ["",""], answer: 0}. Parle normalement pour la question.`;
-
+        const c = document.getElementById('quiz-container');
+        c.style.display = 'block'; c.innerHTML = 'Chargement...';
         try {
-            const response = await fetch(MISTRAL_URL, {
+            const r = await fetch(MISTRAL_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
                 body: JSON.stringify({
                     model: "mistral-small-latest",
-                    messages: [{ role: "user", content: prompt }]
+                    messages: [{ role: "user", content: `Génère un QCM ${currentLang} JSON: {question:"", options:[""], answer:0}` }]
                 })
             });
-            const data = await response.json();
-            // Basic parsing attempt (LLM might wrap in markdown)
-            let txt = data.choices[0].message.content;
-            const jsonMatch = txt.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const quiz = JSON.parse(jsonMatch[0]);
-                renderQuiz(quiz);
-            } else {
-                quizContainer.innerHTML = txt; // Fallback
-            }
-        } catch (e) {
-            quizContainer.innerHTML = "Erreur quiz.";
-        }
+            const d = await r.json();
+            let txt = d.choices[0].message.content;
+            if (txt.includes('```json')) txt = txt.split('```json')[1].split('```')[0];
+            const q = JSON.parse(txt);
+            c.innerHTML = `<h3 style="color:#e0fff0;">${q.question}</h3>` + q.options.map((o, i) => `<button class="btn-box" onclick="check(${i},${q.answer},this)">${o}</button>`).join('<br>');
+        } catch (e) { c.innerHTML = "Erreur."; }
     });
+    window.check = (i, a, b) => { b.style.background = i === a ? '#00ff41' : '#ff0000'; };
 
-    function renderQuiz(quiz) {
-        const c = document.getElementById('quiz-container');
-        c.innerHTML = `
-            <h3 style="color:#e0fff0; margin-bottom:15px;">${quiz.question}</h3>
-            <div style="display:flex; flex-direction:column; gap:10px;">
-                ${quiz.options.map((opt, i) => `
-                    <button class="btn-box" onclick="checkQuiz(this, ${i}, ${quiz.answer})">${opt}</button>
-                `).join('')}
-            </div>
-        `;
-    }
-
-    window.checkQuiz = function (btn, index, correction) {
-        if (index === correction) {
-            btn.style.background = '#66cca0';
-            btn.style.color = '#000';
-            alert("C'est carré ! T'es un bon.");
-        } else {
-            btn.style.background = '#ff8080';
-            alert("T'es nul frérot... recommence.");
-        }
-    };
 });
