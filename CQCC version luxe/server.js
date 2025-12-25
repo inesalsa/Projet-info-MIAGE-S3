@@ -36,7 +36,7 @@ const server = http.createServer((req, res) => {
 
         fs.readFile(filePath, (err, content) => {
             if (err) {
-                if(err.code == 'ENOENT') {
+                if (err.code == 'ENOENT') {
                     res.writeHead(404);
                     res.end('404 Not Found');
                 } else {
@@ -59,42 +59,80 @@ const server = http.createServer((req, res) => {
             try {
                 const data = JSON.parse(body);
                 const code = data.code;
-                
-                // Temp file
+                const lang = data.language || 'c';
+
+                // Temp directory
                 const tmpDir = os.tmpdir();
-                const sourceFile = path.join(tmpDir, 'cqcd_temp.c');
-                const exeFile = path.join(tmpDir, 'cqcd_temp.exe');
+                // Randomize filename to avoid collisions
+                const id = Math.random().toString(36).substring(7);
+
+                let cmd = "";
+                let sourceFile = "";
+                let exeFile = "";
+
+                // --- LANGUAGE SWITCH ---
+                if (lang === 'c') {
+                    sourceFile = path.join(tmpDir, `code_${id}.c`);
+                    exeFile = path.join(tmpDir, `code_${id}.exe`);
+                    cmd = `gcc "${sourceFile}" -o "${exeFile}" && "${exeFile}"`;
+                }
+                else if (lang === 'cpp') {
+                    sourceFile = path.join(tmpDir, `code_${id}.cpp`);
+                    exeFile = path.join(tmpDir, `code_${id}.exe`);
+                    cmd = `g++ "${sourceFile}" -o "${exeFile}" && "${exeFile}"`;
+                }
+                else if (lang === 'python') {
+                    sourceFile = path.join(tmpDir, `code_${id}.py`);
+                    cmd = `python "${sourceFile}"`;
+                }
+                else if (lang === 'javascript') {
+                    sourceFile = path.join(tmpDir, `code_${id}.js`);
+                    cmd = `node "${sourceFile}"`;
+                }
+                else if (lang === 'php') {
+                    sourceFile = path.join(tmpDir, `code_${id}.php`);
+                    cmd = `php "${sourceFile}"`;
+                }
+                else if (lang === 'java') {
+                    // Java is tricky because class name must match filename.
+                    // We'll trust the user used "Main" or try to regex it, 
+                    // OR we just save as Main.java
+                    sourceFile = path.join(tmpDir, 'Main.java');
+                    // We must delete generic Main.class/java first to avoid issues
+                    if (fs.existsSync(sourceFile)) fs.unlinkSync(sourceFile);
+
+                    cmd = `javac "${sourceFile}" && java -cp "${tmpDir}" Main`;
+                }
+                else {
+                    sourceFile = path.join(tmpDir, `code_${id}.txt`);
+                    cmd = `echo "Langage ${lang} non supporté par le serveur."`;
+                }
 
                 fs.writeFileSync(sourceFile, code);
 
-                // Run GCC
-                // -x c : force language to C
-                // -o : output file
-                exec(`gcc "${sourceFile}" -o "${exeFile}"`, (error, stdout, stderr) => {
+                // Execution
+                exec(cmd, { timeout: 5000 }, (error, stdout, stderr) => {
                     let output = "";
                     let success = false;
 
                     if (error) {
-                        // Compilation Error
-                        output = stderr || error.message;
+                        // If it's a timeout
+                        if (error.signal === 'SIGTERM') {
+                            output = "Temps d'exécution dépassé (Timeout).";
+                        } else {
+                            // If it's a compilation/execution error
+                            output = stderr || error.message;
+                            // Some commands output to stdout even on error
+                            if (stdout) output += "\n" + stdout;
+                        }
                     } else {
-                        // Compilation Success, now Run it (if simple program)
                         success = true;
-                        // For safety, we just say it compiled. Running arbitrary code is dangerous, 
-                        // but if user wants we can add it. For now let's just show compilation result.
-                        // Actually typically users want to see the RUN output. Let's try running it with timeout.
-                        
-                        exec(`"${exeFile}"`, { timeout: 2000 }, (runErr, runStdout, runStderr) => {
-                           if (runErr) {
-                               output = `[COMPILATION: OK]\n[RUNTIME ERROR]\n${runStderr || runErr.message}`;
-                           } else {
-                               output = `[COMPILATION: OK]\n[OUTPUT]\n${runStdout}`;
-                           }
-                           res.writeHead(200, { 'Content-Type': 'application/json' });
-                           res.end(JSON.stringify({ success: true, output: output }));
-                        });
-                        return; // Async return
+                        output = stdout;
+                        if (stderr) output += "\n[STDERR] " + stderr;
                     }
+
+                    // Cleanup (Optional / Best Effort)
+                    // try { fs.unlinkSync(sourceFile); if(exeFile) fs.unlinkSync(exeFile); } catch(e){}
 
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ success: success, output: output }));
