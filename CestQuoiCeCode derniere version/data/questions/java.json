@@ -1,0 +1,190 @@
+{
+    "themes": [
+        {
+            "id": "java_basics",
+            "name": "Bases Java & OOP",
+            "questions": [
+                {
+                    "q": "Quelle est la différence entre `==` et `.equals()` pour les Strings ?",
+                    "code": "String s1 = new String(\"A\");\nString s2 = new String(\"A\");\n// s1 == s2 vs s1.equals(s2)",
+                    "opts": [
+                        "Aucune",
+                        "== compare le contenu, equals les références",
+                        "== compare les références, equals le contenu",
+                        "Les deux comparent le contenu"
+                    ],
+                    "correct": 2,
+                    "explanation": "`==` compare les adresses mémoires (ici différentes car `new`). `equals()` compare le contenu des chaînes caractère par caractère."
+                },
+                {
+                    "q": "Héritage multiple en Java ?",
+                    "opts": [
+                        "Oui, avec 'extends A, B'",
+                        "Non, impossible",
+                        "Oui, via les Interfaces",
+                        "Oui, via les classes abstraites"
+                    ],
+                    "correct": 2,
+                    "explanation": "Java interdit l'héritage multiple de classes (`extends`), mais permet d'implémenter de multiples interfaces (`implements InterfaceA, InterfaceB`)."
+                },
+                {
+                    "q": "Mot clé `final` sur une variable.",
+                    "code": "final int x = 10;",
+                    "opts": [
+                        "x ne peut pas être lu",
+                        "x est privé",
+                        "x ne peut pas être modifié (constante)",
+                        "x est statique"
+                    ],
+                    "correct": 2,
+                    "explanation": "`final`rend une référence ou une primitive immuable après son initialisation."
+                },
+                {
+                    "q": "Surcharge vs Redéfinition (Overload vs Override)",
+                    "opts": [
+                        "Même chose",
+                        "Override = même signature, Overload = paramètres différents",
+                        "Override = statique, Overload = dynamique",
+                        "Inverse"
+                    ],
+                    "correct": 1,
+                    "explanation": "L'Overriding (Redéfinition) c'est remplacer une méthode inherited. L'Overloading (Surcharge) c'est créer plusieurs méthodes avec le même nom mais des paramètres différents."
+                }
+            ]
+        },
+        {
+            "id": "collections",
+            "name": "Collections & Generics",
+            "questions": [
+                {
+                    "q": "Quelle est la complexité d'un `ArrayList.get(i)` ?",
+                    "opts": [
+                        "O(1)",
+                        "O(n)",
+                        "O(log n)",
+                        "O(n^2)"
+                    ],
+                    "correct": 0,
+                    "explanation": "ArrayList est basé sur un tableau. L'accès par index est instantané (O(1))."
+                },
+                {
+                    "q": "HashMap autorise-t-elle les clés nulles ?",
+                    "opts": [
+                        "Oui (une seule)",
+                        "Non, jamais",
+                        "Oui (plusieurs)",
+                        "Seulement si la valeur est null"
+                    ],
+                    "correct": 0,
+                    "explanation": "HashMap autorise une seule clé `null`. HashTable (vieux) ne l'autorisait pas."
+                },
+                {
+                    "q": "Set (HashSet) : particularité ?",
+                    "opts": [
+                        "Garde l'ordre d'insertion",
+                        "Interdit les doublons",
+                        "Thread-safe",
+                        "Clés/Valeurs"
+                    ],
+                    "correct": 1,
+                    "explanation": "Un Set est une collection qui ne contient aucun élément en double. HashSet ne garantit pas l'ordre."
+                }
+            ]
+        },
+        {
+            "id": "jvm",
+            "name": "JVM & Mémoire",
+            "questions": [
+                {
+                    "q": "Qui gère la libération de la mémoire en Java ?",
+                    "opts": [
+                        "Le développeur (free)",
+                        "Le Garbage Collector (GC)",
+                        "L'OS",
+                        "Le compilateur"
+                    ],
+                    "correct": 1,
+                    "explanation": "Le Garbage Collector passe périodiquement pour détruire les objets qui ne sont plus référencés."
+                },
+                {
+                    "q": "Différence Stack vs Heap ?",
+                    "opts": [
+                        "Objets sur Stack, Primitives sur Heap",
+                        "Tout sur Heap",
+                        "Primitives/Refs sur Stack, Objets sur Heap",
+                        "Tout sur Stack"
+                    ],
+                    "correct": 2,
+                    "explanation": "Les variables locales et références sont sur la Stack (rapide, temporaire). Les objets créés avec `new` sont sur la Heap (gérée par le GC)."
+                },
+                {
+                    "q": "Qu'est-ce qu'une fuite mémoire en Java ?",
+                    "opts": [
+                        "Impossible grâce au GC",
+                        "Référence oubliée vers un objet inutile",
+                        "Erreur malloc",
+                        "Stack Overflow"
+                    ],
+                    "correct": 1,
+                    "explanation": "Si vous gardez une référence statique vers une liste qui ne cesse de grandir, le GC ne pourra jamais supprimer ces objets. C'est une fuite."
+                }
+            ]
+        },
+        {
+            "id": "streams",
+            "name": "Java 8+ Streams & Lambdas",
+            "questions": [
+                {
+                    "q": "Que fait `.stream().filter(x -> x > 10)` ?",
+                    "opts": [
+                        "Supprime les éléments > 10",
+                        "Ne garde que les éléments > 10",
+                        "Trie les éléments",
+                        "Ajoute 10"
+                    ],
+                    "correct": 1,
+                    "explanation": "`filter` ne conserve que les éléments qui satisfont le prédicat (True)."
+                },
+                {
+                    "q": "Terminal Operation : Laquelle termine le stream ?",
+                    "opts": [
+                        ".map()",
+                        ".filter()",
+                        ".sorted()",
+                        ".collect()"
+                    ],
+                    "correct": 3,
+                    "explanation": "`collect()` (comme `forEach`, `reduce`, `count`) est une opération terminale qui déclenche le traitement et produit un résultat. Les autres sont intermédiaires (lazy)."
+                }
+            ]
+        },
+        {
+            "id": "exceptions",
+            "name": "Exceptions",
+            "questions": [
+                {
+                    "q": "Checked vs Unchecked Exceptions",
+                    "opts": [
+                        "RuntimeException est Unchecked",
+                        "IOException est Unchecked",
+                        "Toutes sont Checked",
+                        "Aucune différence"
+                    ],
+                    "correct": 0,
+                    "explanation": "Les RuntimeException (NullPointer, IndexOutOfBounds) sont Unchecked (pas obligées d'être catchées). Les autres (IOException, SQLException) sont Checked (try/catch obligatoire)."
+                },
+                {
+                    "q": "Que fait le bloc `finally` ?",
+                    "opts": [
+                        "S'exécute uniquement si erreur",
+                        "S'exécute uniquement si succès",
+                        "S'exécute TOUJOURS (nettoyage)",
+                        "Arrête le programme"
+                    ],
+                    "correct": 2,
+                    "explanation": "`finally` est exécuté quoi qu'il arrive (après le try ou le catch), même s'il y a un `return` avant."
+                }
+            ]
+        }
+    ]
+}

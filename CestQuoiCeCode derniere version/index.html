@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C'EST QUOI CE CODE ?</title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Montserrat:wght@300;400;600&family=Share+Tech+Mono&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- CodeMirror -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
+
+    <!-- MODES -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/php/php.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <canvas id="matrix-background"></canvas>
+
+    <!-- HEADER -->
+    <header id="matrix-header">
+        <div class="brand-group">
+            <div class="brand">C'EST QUOI CE CODE ?</div>
+            <div class="sub-brand">LE COACHING CODE DU TER-TER</div>
+        </div>
+        <nav class="top-nav">
+            <span class="nav-link active" data-target="view-landing">LA BASE</span>
+            <span class="nav-link" data-target="view-courses">LE SAVOIR</span>
+            <span class="nav-link" data-target="view-editor">LE CHARBON</span>
+            <span class="nav-link" data-target="view-gogs">LES DOSSIERS</span>
+            <div class="profile-nav-wrapper" style="position:relative;">
+                <span class="nav-link" id="btn-profile">TON BLAZE</span>
+                <div id="logout-popover" class="logout-popover">
+                    <p>Se déconnecter ?</p>
+                    <div class="popover-actions">
+                        <button id="btn-pop-yes" class="pop-btn yes">OUI</button>
+                        <button id="btn-pop-no" class="pop-btn no">NON</button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- CONTENT -->
+    <main id="app-container">
+
+        <!-- LANDING -->
+        <section id="view-landing" class="view-section active">
+            <div class="hero-section">
+                <h1 class="hero-title">BIENVENUE AU ZBEUL</h1>
+                <div class="hero-subtitle">TU VEUX CODER OU TU VEUX JOUER AUX BILLES ?</div>
+                <div class="hero-buttons">
+                    <button class="btn-hero" id="btn-enter-now">ENTRER DANS L'ARÈNE</button>
+                </div>
+            </div>
+
+            <div class="laser-separator-container">
+                <div class="laser-line"></div>
+                <div class="laser-flare"></div>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card" id="card-hack">
+                    <div class="card-icon"><i class="fas fa-radiation"></i></div>
+                    <h3>L'ABATTOIR (IDE)</h3>
+                    <p>C'est ici que tu cook. Fais pas tout sauter stp.</p>
+                </div>
+                <div class="feature-card center-card" id="card-rabbit">
+                    <div class="card-icon"><i class="fas fa-brain"></i></div>
+                    <h3>MUSCU CERVEAU</h3>
+                    <p>Apprends les bases avant de percer.</p>
+                </div>
+                <div class="feature-card" id="card-neo">
+                    <div class="card-icon"><i class="fas fa-history"></i></div>
+                    <h3>LES DOSSIERS (GIT)</h3>
+                    <p>Ton historique de crimes.</p>
+                </div>
+            </div>
+
+            <div class="laser-separator-container">
+                <div class="laser-line"></div>
+            </div>
+
+            <div class="footer-grid">
+                <div class="footer-col" id="col-updates">
+                    <div class="col-head">ALERTE GÉNÉRALE</div>
+                    <div class="news-item">
+                        <h4>MISTRAL EN ROUE LIBRE</h4>
+                        <p>Il insulte les mères maintenant. Fais gaffe.</p>
+                    </div>
+                </div>
+                <div class="footer-col" id="col-resources">
+                    <div class="col-head">KIT DE SURVIE</div>
+                    <div class="news-item">
+                        <h4>TUTO : "COMMENT PAS ETRE NUL"</h4>
+                        <p>Dispo bientôt (quand t'auras du niveau).</p>
+                    </div>
+                    <button class="btn-box">TELECHARGER</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- EDITOR (The Split Pane Upgrade) -->
+        <section id="view-editor" class="view-section">
+            <div class="internal-header">
+                <h2>L'ABATTOIR</h2>
+                <div style="font-size:0.8rem; opacity:0.7; letter-spacing:2px;">CODE PAS AVEC TES PIEDS SVP</div>
+            </div>
+
+            <div class="editor-container">
+
+                <!-- LEFT: Code & Terminal -->
+                <div id="editor-main-panel" class="panel-full">
+                    <div class="editor-bar">
+                        <div class="tab-group">
+                            <span class="tab active">main_dinguerie.c</span>
+                            <select id="language-select" class="lang-selector">
+                                <option value="c">C (Mode Guerrier)</option>
+                                <option value="cpp">C++ (Mode Machine)</option>
+                                <option value="csharp">C# (Mode Corpo)</option>
+                                <option value="java">Java (Mode Verbeux)</option>
+                                <option value="javascript">JS (Mode Script Kiddie)</option>
+                                <option value="python">Python (Mode Facile)</option>
+                                <option value="php">PHP (Mode Dinosaure)</option>
+                            </select>
+                        </div>
+                        <div class="editor-actions">
+                            <button id="btn-toggle-chat" class="highlight-btn" style="margin-right:10px;"><i
+                                    class="fas fa-comments"></i> PARLER AU CHEF</button>
+                            <button id="btn-compile" class="btn-hero" style="font-size:0.8rem;">ENVOYER LA
+                                SAUCE</button>
+                        </div>
+                    </div>
+                    <div id="code-editor-wrapper">
+                        <textarea id="code-input"></textarea>
+                    </div>
+                    <div id="terminal-output">_En attente de tes bêtises...</div>
+                </div>
+
+                <!-- RIGHT: AI Chat & Report -->
+                <div id="editor-side-panel" class="panel-closed">
+                    <div class="ai-side-header">
+                        <span>BUREAU DU CHEF</span>
+                        <i class="fas fa-times" id="close-side-panel" style="cursor:pointer;" title="Fermer"></i>
+                    </div>
+
+                    <!-- Chat History (includes reports) -->
+                    <div id="ai-chat-history">
+                        <div class="ai-msg ai-system">
+                            Tu veux quoi ? Pose ta question ou envoie du code, que je rigole.
+                        </div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="ai-input-area">
+                        <input type="text" id="ai-user-input" placeholder="Insulte-moi ou pose une question..."
+                            autocomplete="off">
+                        <button id="btn-send-chat"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ARCHIVES (History) -->
+        <section id="view-gogs" class="view-section">
+            <div class="internal-header">
+                <h2>DOSSIER CRIMINEL</h2>
+                <div style="font-size:0.8rem; color:#8ab095;" id="user-status-gogs">FICHE SUSPECT</div>
+            </div>
+
+            <div id="archives-content" style="display:none;">
+                <div class="profile-container">
+                    <div class="profile-header-card">
+                        <!-- Avatar Removed -->
+                        <div class="profile-info">
+                            <h3 id="profile-username">PSEUDO</h3>
+                            <div class="profile-badge">MENACE DE NIVEAU 1</div>
+                            <p id="profile-email">email@matrix.com</p>
+                        </div>
+                    </div>
+
+                    <div class="profile-stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-value" id="stat-questions">0</div>
+                            <div class="stat-label">QUESTIONS RÉP.</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="stat-errors">0</div>
+                            <div class="stat-label">ERREURS IA</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="stat-level">NOOB</div>
+                            <div class="stat-label">RANG ACTUEL</div>
+                        </div>
+                    </div>
+
+                    <div class="skills-matrix-container"
+                        style="margin-top: 20px; padding: 10px; background: rgba(0,0,0,0.3);">
+                        <h3
+                            style="color:#e0fff0; border-bottom:1px solid #2ecc71; padding-bottom:5px; font-size: 1rem;">
+                            MATRICE DE COMPÉTENCES</h3>
+                        <div id="skills-list" style="margin-top:10px;">
+                            <em style="color:#666; font-size:0.8rem;">Aucune donnée de combat.</em>
+                        </div>
+                    </div>
+
+                    <div class="laser-separator-container">
+                        <div class="laser-line"></div>
+                    </div>
+
+                    <div class="profile-actions">
+                        <h3>ACTIONS DU CONDAMNÉ</h3>
+                        <!-- Reuse existing archives list container here but styled differently -->
+                        <div id="conversations-list" class="timeline-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="gogs-unauth" style="text-align:center; padding: 50px;">
+                <p>IDENTIFICATION REQUISE POUR ACCÉDER AUX LOGS.</p>
+                <button id="btn-login-archives" class="btn-hero" style="margin-top:20px;">SE DÉNONCER (LOGIN)</button>
+            </div>
+        </section>
+
+        <!-- COURSES -->
+        <section id="view-courses" class="view-section">
+            <div class="internal-header">
+                <h2>MUSCU CERVEAU</h2>
+                <div id="muscu-breadcrumbs"
+                    style="font-size:0.8rem; opacity:0.7; letter-spacing:2px; margin-top:5px; cursor:pointer;">
+                    ACCUEIL
+                </div>
+            </div>
+
+            <!-- SUB-VIEW: MENU PRINCIPAL (CHOIX QUIZ OU COURS) -->
+            <div id="muscu-menu" class="muscu-subview active">
+                <!-- Guest Warning -->
+                <div id="guest-warning-msg"
+                    style="display:none; background:rgba(231, 76, 60, 0.2); border:1px solid #e74c3c; padding:10px; margin:0 auto 20px auto; max-width:500px; color:#ffadad; font-size:0.9rem;">
+                    <i class="fas fa-exclamation-circle"></i> Attention : Tu n'es pas connecté. Ta progression et tes
+                    stats seront perdues à la fermeture.
+                </div>
+
+                <div class="features-grid" style="gap:40px;">
+                    <div class="savoir-card" id="btn-mode-quiz">
+                        <div class="savoir-head">
+                            <span>MODE DUEL (QUIZ)</span>
+                        </div>
+                        <div class="savoir-desc">Teste tes connaissances. L'IA ou le classique ?</div>
+
+                        <div class="history-section">
+                            <div class="col-head">DERNIERS COMBATS</div>
+                            <div id="hist-quiz"></div>
+                        </div>
+                    </div>
+                    <div class="savoir-card" id="btn-mode-cours">
+                        <div class="savoir-head">
+                            <span>MODE ARCHIVES (COURS)</span>
+                        </div>
+                        <div class="savoir-desc">Apprends le savoir interdit.</div>
+
+                        <div class="history-section">
+                            <div class="col-head">DERNIERS SCROLLS</div>
+                            <div id="hist-cours"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB-VIEW: SETUP QUIZ -->
+            <div id="muscu-quiz-setup" class="muscu-subview" style="display:none;">
+                <div class="setup-container">
+                    <h3>PARAMÈTRES DU DUEL</h3>
+
+                    <div class="setup-group">
+                        <label>QUI EST TON ADVERSAIRE ?</label>
+                        <div class="option-row">
+                            <button class="btn-option active" id="opt-quiz-std" data-type="standard">STANDARD
+                                (QCM)</button>
+                            <button class="btn-option" id="opt-quiz-ai" data-type="ai">IA (MIJOTÉ)</button>
+                        </div>
+                        <p id="ai-quiz-warning" style="font-size:0.7rem; color:#f0ad4e; display:none; margin-top:5px;">
+                            <i class="fas fa-exclamation-triangle"></i> Nécessite d'être connecté pour analyser ton
+                            historique.
+                        </p>
+                    </div>
+
+                    <div class="setup-group">
+                        <label>QUEL ARME (LANGAGE) ?</label>
+                        <select id="quiz-lang-select" class="lang-selector" style="width:100%;">
+                            <option value="c">C (Le daron)</option>
+                            <option value="javascript">JAVASCRIPT (Le bordel)</option>
+                            <option value="python">PYTHON (La promenade)</option>
+                            <option value="java">JAVA (L'usine)</option>
+                            <option value="php">PHP (Le survivant)</option>
+                        </select>
+                    </div>
+
+                    <div class="setup-group">
+                        <label>QUEL THÈME (SUBJECT) ?</label>
+                        <select id="quiz-theme-select" class="lang-selector" style="width:100%;">
+                            <option value="all">TOUT (MÉLANGE EXPLOSIF)</option>
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+
+                    <div class="setup-group">
+                        <label>DIFFICULTÉ</label>
+                        <select id="quiz-diff-select" class="lang-selector" style="width:100%;">
+                            <option value="all">AUTO (MIXTE)</option>
+                            <option value="easy">NOOB (FACILE)</option>
+                            <option value="medium">SOLDAT (MOYEN)</option>
+                            <option value="hard">HARDCORE (DIFFICILE)</option>
+                        </select>
+                    </div>
+
+                    <div class="setup-group">
+                        <label>DURÉE DU COMBAT</label>
+                        <select id="quiz-length-select" class="lang-selector" style="width:100%;">
+                            <option value="5">5 QUESTIONS (TIR RAPIDE)</option>
+                            <option value="10">10 QUESTIONS (ECHAUFFEMENT)</option>
+                            <option value="20" selected>20 QUESTIONS (STANDARD)</option>
+                            <option value="50">50 QUESTIONS (MARATHON)</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-top:40px; display:flex; flex-direction:column; gap:15px;">
+                        <button id="btn-start-quiz" class="btn-hero" style="width:100%;">LANCER LE COMBAT</button>
+                        <button class="btn-text-only btn-back-menu">RETOUR AU MENU</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB-VIEW: LISTE COURS -->
+            <div id="muscu-course-list" class="muscu-subview" style="display:none;">
+                <div id="course-list-container" class="course-grid">
+                    <!-- Généré par JS -->
+                </div>
+                <div style="text-align:center; margin-top: 20px;">
+                    <button class="btn-text-only btn-back-menu">RETOUR</button>
+                </div>
+            </div>
+
+            <!-- SUB-VIEW: QUIZ ACTIF -->
+            <div id="muscu-active-quiz" class="muscu-subview" style="display:none;">
+                <div class="quiz-interface">
+                    <div class="quiz-header">
+                        <span id="quiz-progress">QUESTION 1/5</span>
+                        <span id="quiz-score">SCORE: 0</span>
+                    </div>
+                    <div class="quiz-content">
+                        <h3 id="quiz-question-text">Chargement...</h3>
+                        <div id="quiz-options-list" class="quiz-options-stack"></div>
+                    </div>
+                    <div id="quiz-feedback" class="quiz-feedback-box" style="display:none;"></div>
+
+                    <div id="quiz-actions" style="margin-top:30px;">
+                        <button id="btn-next-question" class="btn-box"
+                            style="display:none; width:100%;">SUIVANT</button>
+
+                        <!-- Fin de Quiz Buttons -->
+                        <div id="quiz-finish-actions" style="display:none; flex-direction:column; gap:10px;">
+                            <button id="btn-quiz-back-menu" class="btn-hero" style="width:100%;">RETOUR MENU</button>
+                            <button id="btn-quiz-gogs" class="btn-box" style="width:100%;">VOIR LES DOSSIERS</button>
+                        </div>
+
+                        <button id="btn-quit-quiz" class="btn-text-only"
+                            style="margin-top:15px; width:100%;">ABANDONNER</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB-VIEW: COURS ACTIF -->
+            <div id="muscu-active-course" class="muscu-subview" style="display:none;">
+                <div class="course-content-panel">
+                    <h2 id="course-title">Titre du Cours</h2>
+                    <div id="course-body" class="markdown-body">
+                        <!-- Texte du cours -->
+                    </div>
+
+                    <!-- Zone Exercice -->
+                    <div id="course-exercise-area" style="display:none;">
+                        <div class="laser-separator-container">
+                            <div class="laser-line"></div>
+                        </div>
+                        <h3>MISSION PRATIQUE</h3>
+                        <p id="exercise-instruction">Consigne...</p>
+
+                        <div class="mini-ide-wrapper">
+                            <textarea id="course-code-input"></textarea>
+                        </div>
+                        <button id="btn-submit-exercise" class="btn-hero" style="margin-top:10px;">SOUMETTRE AU
+                            COACH</button>
+                        <div id="exercise-feedback" class="terminal-box">
+                            _En attente de soumission...
+                        </div>
+                    </div>
+
+                    <div class="course-nav-buttons">
+                        <button id="btn-prev-chapter" class="btn-box">PRÉCÉDENT</button>
+                        <button id="btn-quit-course" class="btn-box">QUITTER</button>
+                        <button id="btn-next-chapter" class="btn-box">SUIVANT</button>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- AUTHENTICATION -->
+    <section id="view-auth" class="view-section">
+        <div class="internal-header">
+            <h2>IDENTIFICATION</h2>
+            <div style="font-size:0.8rem; opacity:0.7; letter-spacing:2px;">MONTRE PACTE BLANC OU DEGAGE</div>
+        </div>
+
+        <div class="auth-container">
+            <div class="auth-box">
+                <!-- TABS -->
+                <div class="auth-tabs">
+                    <div class="auth-tab active" data-target="form-login">LOG IN</div>
+                    <div class="auth-tab" data-target="form-register">S'INSCRIRE</div>
+                </div>
+
+                <!-- LOGIN FORM -->
+                <div id="form-login" class="auth-form active">
+                    <div class="input-group">
+                        <label>EMAIL</label>
+                        <input type="email" id="login-email" placeholder="neo@matrix.com">
+                    </div>
+                    <div class="input-group">
+                        <label>MOT DE PASSE</label>
+                        <input type="password" id="login-password" placeholder="******">
+                    </div>
+                    <div class="form-actions">
+                        <button id="btn-submit-login" class="btn-hero">SE CONNECTER</button>
+                    </div>
+                    <p class="status-msg" id="login-status"></p>
+                </div>
+
+                <!-- REGISTER FORM -->
+                <div id="form-register" class="auth-form" style="display:none;">
+                    <div class="input-group">
+                        <label>TON BLAZE (USERNAME)</label>
+                        <input type="text" id="reg-username" placeholder="Trinity">
+                    </div>
+                    <div class="input-group">
+                        <label>EMAIL</label>
+                        <input type="email" id="reg-email" placeholder="trinity@matrix.com">
+                    </div>
+                    <div class="input-group">
+                        <label>MOT DE PASSE</label>
+                        <input type="password" id="reg-password" placeholder="******">
+                    </div>
+                    <div class="form-actions">
+                        <button id="btn-submit-register" class="btn-hero">CRÉER COMPTE</button>
+                    </div>
+                    <p class="status-msg" id="reg-status"></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MATRIX LOGOUT MODAL -->
+    <!-- MODAL REMOVED -->
+
+    <!-- SYSTEM ALERT MODAL -->
+    <div id="system-alert-overlay" class="matrix-modal-overlay">
+        <div class="matrix-modal-box guest-warning-box" style="animation: none; max-width: 400px;">
+            <h2 id="system-alert-title" style="color:#e74c3c; font-family:'Cinzel'; margin-bottom:15px;">ACCÈS REFUSÉ
+            </h2>
+            <p id="system-alert-msg" style="color:#ffadad; margin-bottom:20px;">
+                Il faut être connecté pour utiliser l'IA.
+            </p>
+            <button id="btn-close-system-alert" class="btn-box"
+                style="width:100%; border-color:#e74c3c; color:#e74c3c;">COMPRIS</button>
+        </div>
+    </div>
+
+    <!-- MODAL QUIT QUIZ -->
+    <div id="modal-quit" class="modal-overlay">
+        <div class="modal-box">
+            <h3 class="modal-title">DÉSERTEUR ?</h3>
+            <p class="modal-desc">Si tu pars maintenant, ta progression sera perdue dans le néant. T'assumes ?</p>
+            <div class="modal-actions">
+                <button id="btn-quit-confirm" class="btn-hero"
+                    style="border-color:#e74c3c; color:#e74c3c; box-shadow: 0 0 15px rgba(231, 76, 60, 0.2);">OUI, JE
+                    FUIS</button>
+                <button id="btn-quit-cancel" class="btn-hero"
+                    style="border-color:#2ecc71; color:#2ecc71; box-shadow: 0 0 15px rgba(46, 204, 113, 0.2);">NON, JE
+                    RESTE</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="matrix.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
