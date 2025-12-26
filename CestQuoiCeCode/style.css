@@ -1855,6 +1855,8 @@ body {
 .archive-item.active {
     background: rgba(46, 204, 113, 0.2);
     border-color: var(--green-tox);
+    pointer-events: none;
+    cursor: default;
 }
 
 .archive-title {
@@ -1879,6 +1881,8 @@ body {
     right: 5px;
     display: none;
     /* Show on hover */
+    pointer-events: auto;
+    /* Re-enable for buttons if item is disabled (though usually active item implies we are in it, so maybe buttons should still work? Actually if pointer-events:none is on parent, children are disabled too unless overridden) */
 }
 
 .archive-item:hover .archive-actions {
@@ -1891,7 +1895,7 @@ body {
     border: none;
     color: #888;
     cursor: pointer;
-    font-size: 0.7rem;
+    font-size: 0.85rem;
 }
 
 .archive-btn:hover {
@@ -1938,3 +1942,15 @@ body {
 }
 
 /* Disliked */
+/* --- AI REMARK BOX --- */
+.ai-msg-remark {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(52, 152, 219, 0.1);
+    border: 1px solid #3498db;
+    color: #aed6f1;
+    font-size: 0.85rem;
+    border-left: 3px solid #3498db;
+    animation: fadeIn 0.5s ease;
+}
+

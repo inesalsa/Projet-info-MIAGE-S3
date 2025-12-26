@@ -276,6 +276,87 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // 4. COMMIT CODE (GOGS SIMULATION)
+    if (req.method === 'POST' && req.url === '/commit') {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+            try {
+                const { email, code, lang, message } = JSON.parse(body);
+                const db = getDB();
+                const userIndex = db.users.findIndex(u => u.email === email);
+
+                if (userIndex !== -1) {
+                    const newCommit = {
+                        id: Math.random().toString(36).substring(7),
+                        timestamp: Date.now(),
+                        code: code,
+                        lang: lang,
+                        message: message || "Update " + new Date().toLocaleTimeString()
+                    };
+
+                    if (!db.users[userIndex].data.commits) db.users[userIndex].data.commits = [];
+                    db.users[userIndex].data.commits.unshift(newCommit); // Add to top
+
+                    // Limit history to 50 commits to save space
+                    if (db.users[userIndex].data.commits.length > 50) db.users[userIndex].data.commits.pop();
+
+                    saveDB(db);
+
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: true, commit: newCommit }));
+                } else {
+                    res.writeHead(404);
+                    res.end(JSON.stringify({ success: false, error: "USER NOT FOUND" }));
+                }
+
+            } catch (e) {
+                res.writeHead(500);
+                res.end(JSON.stringify({ success: false, error: e.message }));
+            }
+        });
+        return;
+    }
+
+    // 5. AI PROXY (MISTRAL)
+    if (req.method === 'POST' && req.url === '/ai-completion') {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', () => {
+            const https = require('https');
+            const API_KEY = "pfbO4KFP7TriMY3iZYm6mzRlfhFCmsQw";
+
+            const options = {
+                hostname: 'api.mistral.ai',
+                path: '/v1/chat/completions',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${API_KEY}`
+                }
+            };
+
+            const proxyReq = https.request(options, (proxyRes) => {
+                let data = '';
+                proxyRes.on('data', (chunk) => { data += chunk; });
+                proxyRes.on('end', () => {
+                    res.writeHead(proxyRes.statusCode, { 'Content-Type': 'application/json' });
+                    res.end(data);
+                });
+            });
+
+            proxyReq.on('error', (e) => {
+                console.error("Mistral Proxy Error:", e);
+                res.writeHead(500);
+                res.end(JSON.stringify({ error: "Proxy Error: " + e.message }));
+            });
+
+            proxyReq.write(body);
+            proxyReq.end();
+        });
+        return;
+    }
+
     res.writeHead(404);
     res.end();
 });

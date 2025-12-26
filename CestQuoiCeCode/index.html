@@ -86,8 +86,8 @@
                 </div>
                 <div class="feature-card" id="card-neo">
                     <div class="card-icon"><i class="fas fa-history"></i></div>
-                    <h3>LES DOSSIERS (GIT)</h3>
-                    <p>Ton historique de crimes.</p>
+                    <h3>LES DOSSIERS</h3>
+                    <p>Ton historique de conneries.</p>
                 </div>
             </div>
 
@@ -112,13 +112,15 @@
                     </div>
                     <div class="news-item">
                         <h4>RECRUTEMENT</h4>
-                        <p>Cherche Senior 10 ans d'XP sur techno sortie hier.</p>
+                        <p>Cherche escla..euh employé avec 1000h de jeu sur Elden Ring
+                            (pour le bien du site évidemment).</p>
                     </div>
                 </div>
                 <div class="footer-col" id="col-resources">
                     <div class="col-head">INFORMATION IMPORTANTE</div>
                     <div class="news-item">
-                        <p style="margin-bottom: 10px;">Ce site a été créé dans le but d'aider les élèves à devenir
+                        <p style="margin-bottom: 10px;">C'EST QUOI CE CODE ? a été créé par Yuri et Inès dans le but
+                            d'aider les élèves à devenir
                             des
                             informaticiens expérimentés.</p>
                         <p style="margin-bottom: 10px;">Les codeurs et les chenilles de ce site vous souhaitent la
@@ -140,7 +142,7 @@
         <section id="view-editor" class="view-section">
             <div class="internal-header">
                 <h2>L'ABATTOIR</h2>
-                <div style="font-size:0.8rem; opacity:0.7; letter-spacing:2px;">CODE PAS AVEC TES PIEDS SVP</div>
+                <div style="font-size:0.8rem; opacity:0.7; letter-spacing:2px;">CODE PAS AVEC TES PIEDS STP</div>
             </div>
 
             <div class="editor-container">
@@ -149,15 +151,11 @@
                 <div id="editor-main-panel" class="panel-full">
                     <div class="editor-bar">
                         <div class="tab-group">
-                            <span class="tab active">main_dinguerie.c</span>
+                            <span class="tab active">Vive CINI.h !</span>
                             <select id="language-select" class="lang-selector">
-                                <option value="c">C (Mode Guerrier)</option>
-                                <option value="cpp">C++ (Mode Machine)</option>
-                                <option value="csharp">C# (Mode Corpo)</option>
-                                <option value="java">Java (Mode Verbeux)</option>
-                                <option value="javascript">JS (Mode Script Kiddie)</option>
-                                <option value="python">Python (Mode Facile)</option>
-                                <option value="php">PHP (Mode Dinosaure)</option>
+                                <option value="c">C</option>
+                                <option value="java">Java</option>
+                                <option value="python">Python</option>
                             </select>
                         </div>
                         <div class="editor-actions">
@@ -165,6 +163,9 @@
                                     class="fas fa-comments"></i> PARLER AU CHEF</button>
                             <button id="btn-compile" class="btn-hero" style="font-size:0.8rem;">ENVOYER LA
                                 SAUCE</button>
+                            <button id="btn-commit" class="btn-box"
+                                style="font-size:0.8rem; margin-left:10px; border-color:var(--green-dim); color:var(--green-dim);"
+                                title="Sauvegarder une version"><i class="fas fa-save"></i> Sauvegarder</button>
                         </div>
                     </div>
                     <div id="code-editor-wrapper">
@@ -201,7 +202,7 @@
                         </div>
                         <button id="btn-new-chat-sidebar" class="btn-hero"
                             style="width:90%; margin:10px auto; display:block; font-size:0.7rem;">+ NOUVELLE
-                            RACLÉE</button>
+                            CONV</button>
                         <div id="archives-list-container">
                             <!-- JS WILL FILL THIS -->
                         </div>
@@ -216,7 +217,7 @@
 
                     <!-- Input Area -->
                     <div class="ai-input-area">
-                        <textarea id="ai-user-input" placeholder="Insulte-moi ou pose une question..."
+                        <textarea id="ai-user-input" placeholder="Dépêche-toi j'ai pas toute la journée..."
                             rows="1"></textarea>
                         <button id="btn-send-chat"><i class="fas fa-paper-plane"></i></button>
                     </div>
@@ -265,7 +266,7 @@
                             style="color:#e0fff0; border-bottom:1px solid #2ecc71; padding-bottom:5px; font-size: 1rem;">
                             MATRICE DE COMPÉTENCES</h3>
                         <div id="skills-list" style="margin-top:10px;">
-                            <em style="color:#666; font-size:0.8rem;">Aucune donnée de combat.</em>
+                            <em style="color:#666; font-size:0.8rem;">Aucune donnée.</em>
                         </div>
                     </div>
 
@@ -274,16 +275,22 @@
                     </div>
 
                     <div class="profile-actions">
-                        <h3>ACTIONS DU CONDAMNÉ</h3>
-                        <!-- Reuse existing archives list container here but styled differently -->
+                        <h3>TES CONV RECENTES AVEC LE CHEF</h3>
                         <div id="conversations-list" class="timeline-container"></div>
+
+                        <div class="laser-separator-container" style="margin: 30px 0;">
+                            <div class="laser-line"></div>
+                        </div>
+
+                        <h3>HISTORIQUE DE TES CODES</h3>
+                        <div id="commits-list" class="timeline-container"></div>
                     </div>
                 </div>
             </div>
 
             <div id="gogs-unauth" style="text-align:center; padding: 50px;">
                 <p>IDENTIFICATION REQUISE POUR ACCÉDER AUX LOGS.</p>
-                <button id="btn-login-archives" class="btn-hero" style="margin-top:20px;">SE DÉNONCER (LOGIN)</button>
+                <button id="btn-login-archives" class="btn-hero" style="margin-top:20px;">SE CONNECTER</button>
             </div>
         </section>
 
@@ -303,24 +310,24 @@
                 <div id="guest-warning-msg"
                     style="display:none; background:rgba(231, 76, 60, 0.2); border:1px solid #e74c3c; padding:10px; margin:0 auto 20px auto; max-width:500px; color:#ffadad; font-size:0.9rem;">
                     <i class="fas fa-exclamation-circle"></i> Attention : Tu n'es pas connecté. Ta progression et tes
-                    stats seront perdues à la fermeture.
+                    stats seront perdues à la fermeture du site.
                 </div>
 
                 <div class="features-grid" style="gap:40px;">
                     <div class="savoir-card" id="btn-mode-quiz">
                         <div class="savoir-head">
-                            <span>MODE DUEL (QUIZ)</span>
+                            <span>NOS QUIZ</span>
                         </div>
                         <div class="savoir-desc">Teste tes connaissances. L'IA ou le classique ?</div>
 
                         <div class="history-section">
-                            <div class="col-head">DERNIERS COMBATS</div>
+                            <div class="col-head">DERNIERS QUIZ</div>
                             <div id="hist-quiz"></div>
                         </div>
                     </div>
                     <div class="savoir-card" id="btn-mode-cours">
                         <div class="savoir-head">
-                            <span>MODE ARCHIVES (COURS)</span>
+                            <span>NOS COURS</span>
                         </div>
                         <div class="savoir-desc">Apprends le savoir interdit.</div>
 
@@ -335,7 +342,7 @@
             <!-- SUB-VIEW: SETUP QUIZ -->
             <div id="muscu-quiz-setup" class="muscu-subview" style="display:none;">
                 <div class="setup-container">
-                    <h3>PARAMÈTRES DU DUEL</h3>
+                    <h3>PARAMÈTRES DU QUIZ</h3>
 
                     <div class="setup-group">
                         <label>QUI EST TON ADVERSAIRE ?</label>
@@ -350,47 +357,79 @@
                         </p>
                     </div>
 
-                    <div class="setup-group">
-                        <label>QUEL ARME (LANGAGE) ?</label>
-                        <select id="quiz-lang-select" class="lang-selector" style="width:100%;">
-                            <option value="c">C (Le daron)</option>
-                            <option value="javascript">JAVASCRIPT (Le bordel)</option>
-                            <option value="python">PYTHON (La promenade)</option>
-                            <option value="java">JAVA (L'usine)</option>
-                            <option value="php">PHP (Le survivant)</option>
-                        </select>
+                    <div id="quiz-params-std">
+                        <div class="setup-group">
+                            <label>CHOISI TON LANGAGE ?</label>
+                            <select id="quiz-lang-select" class="lang-selector" style="width:100%;">
+                                <option value="c">C</option>
+                                <option value="python">PYTHON</option>
+                                <option value="java">JAVA</option>
+                            </select>
+                        </div>
+
+                        <div class="setup-group">
+                            <label>SUR QUEL SUJET ?</label>
+                            <select id="quiz-theme-select" class="lang-selector" style="width:100%;">
+                                <option value="all">JE VEUX TOUT</option>
+                                <!-- Populated by JS -->
+                            </select>
+                        </div>
+
+                        <div class="setup-group">
+                            <label>DIFFICULTÉ</label>
+                            <select id="quiz-diff-select" class="lang-selector" style="width:100%;">
+                                <option value="all">AUTO (MIXTE)</option>
+                                <option value="easy">NOOB (FACILE)</option>
+                                <option value="medium">PRO (MOYEN)</option>
+                                <option value="hard">HACKER (DIFFICILE)</option>
+                            </select>
+                        </div>
+
+                        <div class="setup-group">
+                            <label>TU VEUX COMBIEN DE QUESTIONS ?</label>
+                            <select id="quiz-length-select" class="lang-selector" style="width:100%;">
+                                <option value="5">5 QUESTIONS (RAPIDE)</option>
+                                <option value="10">10 QUESTIONS (ECHAUFFEMENT)</option>
+                                <option value="20" selected>20 QUESTIONS (STANDARD)</option>
+                                <option value="50">50 QUESTIONS (MARATHON)</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <div class="setup-group">
-                        <label>QUEL THÈME (SUBJECT) ?</label>
-                        <select id="quiz-theme-select" class="lang-selector" style="width:100%;">
-                            <option value="all">TOUT (MÉLANGE EXPLOSIF)</option>
-                            <!-- Populated by JS -->
-                        </select>
-                    </div>
+                    <!-- AI PARAMS (Hidden by default) -->
+                    <div id="quiz-params-ai" style="display:none;">
+                        <div class="setup-group">
+                            <label>CHOISIS TES DOSSIERS (CONVERSATIONS) - <span id="selected-conv-count"
+                                    style="color:#2ecc71">0</span> sélectionné(s)</label>
+                            <p style="font-size:0.8rem; color:#888; margin-bottom:10px;">L'IA va éplucher ces
+                                discussions pour créer des questions sur mesure.</p>
 
-                    <div class="setup-group">
-                        <label>DIFFICULTÉ</label>
-                        <select id="quiz-diff-select" class="lang-selector" style="width:100%;">
-                            <option value="all">AUTO (MIXTE)</option>
-                            <option value="easy">NOOB (FACILE)</option>
-                            <option value="medium">SOLDAT (MOYEN)</option>
-                            <option value="hard">HARDCORE (DIFFICILE)</option>
-                        </select>
-                    </div>
-
-                    <div class="setup-group">
-                        <label>DURÉE DU COMBAT</label>
-                        <select id="quiz-length-select" class="lang-selector" style="width:100%;">
-                            <option value="5">5 QUESTIONS (TIR RAPIDE)</option>
-                            <option value="10">10 QUESTIONS (ECHAUFFEMENT)</option>
-                            <option value="20" selected>20 QUESTIONS (STANDARD)</option>
-                            <option value="50">50 QUESTIONS (MARATHON)</option>
-                        </select>
+                            <div id="quiz-conv-selector" class="conversation-selector-box" style="
+                                max-height: 300px; 
+                                overflow-y: auto; 
+                                background: rgba(0,0,0,0.3); 
+                                border: 1px solid #444; 
+                                padding: 10px;
+                                border-radius: 4px;
+                            ">
+                                <!-- JS WILL FILL THIS -->
+                                <div style="text-align:center; padding:20px; color:#666;">Chargement...</div>
+                            </div>
+                        </div>
+                        <div class="setup-group">
+                            <label>LANGAGE CIBLE</label>
+                            <select id="quiz-ai-lang-select" class="lang-selector" style="width:100%;">
+                                <option value="c">C</option>
+                                <option value="python">PYTHON</option>
+                                <option value="java">JAVA</option>
+                            </select>
+                            <p style="font-size:0.7rem; color:#666; margin-top:5px;">On force le langage pour éviter les
+                                ambiguïtés.</p>
+                        </div>
                     </div>
 
                     <div style="margin-top:40px; display:flex; flex-direction:column; gap:15px;">
-                        <button id="btn-start-quiz" class="btn-hero" style="width:100%;">LANCER LE COMBAT</button>
+                        <button id="btn-start-quiz" class="btn-hero" style="width:100%;">C'EST PARTI</button>
                         <button class="btn-text-only btn-back-menu">RETOUR AU MENU</button>
                     </div>
                 </div>
@@ -477,14 +516,14 @@
     <section id="view-auth" class="view-section">
         <div class="internal-header">
             <h2>IDENTIFICATION</h2>
-            <div style="font-size:0.8rem; opacity:0.7; letter-spacing:2px;">MONTRE PACTE BLANC OU DEGAGE</div>
+            <div style="font-size:0.8rem; opacity:0.7; letter-spacing:2px;">T'ES NOUVEAU ?</div>
         </div>
 
         <div class="auth-container">
             <div class="auth-box">
                 <!-- TABS -->
                 <div class="auth-tabs">
-                    <div class="auth-tab active" data-target="form-login">LOG IN</div>
+                    <div class="auth-tab active" data-target="form-login">SE CONNECTER</div>
                     <div class="auth-tab" data-target="form-register">S'INSCRIRE</div>
                 </div>
 
@@ -507,7 +546,7 @@
                 <!-- REGISTER FORM -->
                 <div id="form-register" class="auth-form" style="display:none;">
                     <div class="input-group">
-                        <label>TON BLAZE (USERNAME)</label>
+                        <label>TON BLAZE</label>
                         <input type="text" id="reg-username" placeholder="Trinity">
                     </div>
                     <div class="input-group">
@@ -555,6 +594,66 @@
                 <button id="btn-quit-cancel" class="btn-hero"
                     style="border-color:#2ecc71; color:#2ecc71; box-shadow: 0 0 15px rgba(46, 204, 113, 0.2);">NON, JE
                     RESTE</button>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- MODAL COMMIT -->
+    <div id="modal-commit" class="modal-overlay">
+        <div class="modal-box">
+            <h3 class="modal-title">PUSH TO GOGS</h3>
+            <p class="modal-desc">Sauvegarde ton code pour la postérité. Ajoute un message pour t'en souvenir.</p>
+            <input type="text" id="commit-message-input" placeholder="Ex: Fix du bug de la boucle infinie"
+                style="width:100%; padding:10px; background:rgba(0,0,0,0.5); border:1px solid var(--green-dim); color:#fff; font-family:'Share Tech Mono'; margin-bottom:20px;">
+            <div class="modal-actions">
+                <button id="btn-commit-confirm" class="btn-hero"
+                    style="border-color:#2ecc71; color:#2ecc71;">COMMIT</button>
+                <button id="btn-commit-cancel" class="btn-hero"
+                    style="border-color:#e74c3c; color:#e74c3c;">ANNULER</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL GENERIC ALERT -->
+    <div id="modal-matrix-alert" class="modal-overlay">
+        <div class="modal-box">
+            <h3 class="modal-title" id="matrix-alert-title">SYSTEM MESSAGE</h3>
+            <p class="modal-desc" id="matrix-alert-msg">...</p>
+            <div class="modal-actions">
+                <button id="btn-matrix-alert-ok" class="btn-hero"
+                    style="width:100%; border-color:#2ecc71; color:#2ecc71;">REÇU</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL GENERIC CONFIRM -->
+    <div id="modal-matrix-confirm" class="modal-overlay">
+        <div class="modal-box">
+            <h3 class="modal-title" id="matrix-confirm-title">VALIDATION REQUISE</h3>
+            <p class="modal-desc" id="matrix-confirm-msg">...</p>
+            <div class="modal-actions">
+                <button id="btn-matrix-confirm-yes" class="btn-hero"
+                    style="border-color:#e74c3c; color:#e74c3c;">OUI</button>
+                <button id="btn-matrix-confirm-no" class="btn-hero"
+                    style="border-color:#2ecc71; color:#2ecc71;">NON</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL GENERIC PROMPT -->
+    <div id="modal-matrix-prompt" class="modal-overlay">
+        <div class="modal-box">
+            <h3 class="modal-title" id="matrix-prompt-title">SAISIE REQUISE</h3>
+            <p class="modal-desc" id="matrix-prompt-msg">...</p>
+            <input type="text" id="matrix-prompt-input" class="matrix-input"
+                style="width:100%; margin-bottom:20px; background:#000; border:1px solid #2ecc71; color:#2ecc71; padding:10px; font-family:'Courier New', monospace;"
+                autocomplete="off">
+            <div class="modal-actions">
+                <button id="btn-matrix-prompt-ok" class="btn-hero"
+                    style="border-color:#2ecc71; color:#2ecc71;">VALIDER</button>
+                <button id="btn-matrix-prompt-cancel" class="btn-hero"
+                    style="border-color:#e74c3c; color:#e74c3c;">ANNULER</button>
             </div>
         </div>
     </div>

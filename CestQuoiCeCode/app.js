@@ -1,9 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- CONFIGURATION ---
-    const API_KEY = "pfbO4KFP7TriMY3iZYm6mzRlfhFCmsQw";
-    const MISTRAL_URL = "https://api.mistral.ai/v1/chat/completions";
+    // --- CONFIGURATION ---
     const SERVER_URL = "http://localhost:3000";
+    // Proxy URL (Key is now on server)
+    const MISTRAL_URL = `${SERVER_URL}/ai-completion`;
 
     // --- STATE ---
     let currentUser = JSON.parse(localStorage.getItem('cqcd_session_user')) || null;
@@ -202,6 +203,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const status = document.getElementById('reg-status');
 
         if (!user || !email || !pass) { status.textContent = "Tout remplir stp."; return; }
+
+        // VALIDATION STRICTE
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            status.textContent = "Mail invalide (Format: nom@domaine.com).";
+            status.style.color = '#e74c3c';
+            return;
+        }
+        if (pass.length < 6) {
+            status.textContent = "Mdp trop court (Min 6 caractères).";
+            status.style.color = '#e74c3c';
+            return;
+        }
+
         status.textContent = "Création...";
 
         try {
@@ -228,6 +243,22 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
         localStorage.setItem('cqcd_session_user', JSON.stringify(user));
+
+        // CRITICAL FIX: RESET CONVERSATION STATE ON LOGIN
+        activeConversationId = null;
+        headerTitle.textContent = "BUREAU DU CHEF";
+        updateNewChatBtnVisibility();
+        chatHistory.innerHTML = '<div class="ai-msg ai-system">Wesh, t\'es connecté. On reprend les bonnes habitudes ?</div>';
+
+        // CRITICAL FIX: RESET EDITOR STATE
+        if (codeEditor) {
+            codeEditor.setValue("// Session de " + user.username.toUpperCase() + "\n// Fais pas le malin, code proprement.\n");
+            // Clear terminal too
+            const term = document.getElementById('terminal-output');
+            if (term) term.textContent = "_Nouveau départ.";
+        }
+
+        // Render UI
         updateUserUI();
         console.log("Logged in:", user);
     }
@@ -235,6 +266,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function logoutUser() {
         currentUser = null;
         localStorage.removeItem('cqcd_session_user');
+
+        // CRITICAL FIX: RESET CONVERSATION STATE ON LOGOUT
+        activeConversationId = null;
+        headerTitle.textContent = "BUREAU DU CHEF";
+        updateNewChatBtnVisibility();
+        chatHistory.innerHTML = '<div class="ai-msg ai-system">Tu veux quoi ? Pose ta question ou envoie du code, que je rigole.</div>';
+
+        // CRITICAL FIX: RESET EDITOR STATE
+        if (codeEditor) {
+            codeEditor.setValue("// Mode Invité (Code non sauvegardé)\n// Connecte-toi pour ne pas tout perdre.\n");
+            document.getElementById('language-select').value = 'c'; // Reset to default C
+            const term = document.getElementById('terminal-output');
+            if (term) term.textContent = "_Session fermée.";
+        }
+
         updateUserUI();
         switchView('view-landing');
     }
@@ -356,12 +402,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
             const data = await response.json();
-            lastOutput = data.output;
-            if (!data.success) {
-                lastError = "Erreur de compilation/Execution";
-                terminalOutput.style.color = '#ff8080';
+
+            // FILTRAGE INTELLIGENT DES ERREURS "NO MAIN" (POUR LES SNIPPETS)
+            if (!data.success && (data.output.includes('WinMain') || data.output.includes('main undefined') || data.output.includes('entry point'))) {
+                lastOutput = "[INFO] Code analysé comme un Snippet (Pas de main() détecté). Compilation ignorée.";
+                lastError = "";
+                terminalOutput.style.color = '#f1c40f'; // Orange/Yellow warn
             } else {
-                terminalOutput.style.color = '#e0fff0';
+                lastOutput = data.output;
+                if (!data.success) {
+                    lastError = "Erreur de compilation/Execution";
+                    terminalOutput.style.color = '#ff8080';
+                } else {
+                    terminalOutput.style.color = '#e0fff0';
+                }
             }
             terminalOutput.textContent = lastOutput;
 
@@ -444,6 +498,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // CLEAR CONTAINER TO PREVENT DUPLICATION
+        containerArchives.innerHTML = '';
+
         currentUser.data.conversations.forEach(conv => {
             const div = document.createElement('div');
             div.className = 'archive-item';
@@ -461,30 +518,32 @@ document.addEventListener('DOMContentLoaded', () => {
             // Load Click
             div.addEventListener('click', (e) => {
                 if (e.target.closest('.archive-btn')) return;
+                if (conv.id === activeConversationId) return; // Prevent clicking current
                 loadConversation(conv);
             });
 
             // Edit Click
             const btnEdit = div.querySelector('.edit');
             btnEdit.addEventListener('click', async () => {
-                const newTitle = prompt("Nouveau titre :", conv.title);
-                if (newTitle) {
-                    conv.title = newTitle;
-                    await syncData('conversations', currentUser.data.conversations);
-                    renderArchives();
-                    if (conv.id === activeConversationId && headerTitle) headerTitle.textContent = newTitle.toUpperCase();
-                }
+                matrixPrompt("Nouveau titre pour ce dossier :", conv.title || "", async (newTitle) => {
+                    if (newTitle) {
+                        conv.title = newTitle;
+                        await syncData('conversations', currentUser.data.conversations);
+                        renderArchives();
+                        if (conv.id === activeConversationId && headerTitle) headerTitle.textContent = newTitle.toUpperCase();
+                    }
+                }, "RENOMMER L'ARCHIVE");
             });
 
             // Delete Click
             const btnDel = div.querySelector('.delete');
-            btnDel.addEventListener('click', async () => {
-                if (confirm("Supprimer cette conversation ?")) {
+            btnDel.addEventListener('click', () => {
+                matrixConfirm("Supprimer définitivement cette conversation ?", async () => {
                     currentUser.data.conversations = currentUser.data.conversations.filter(c => c.id !== conv.id);
                     await syncData('conversations', currentUser.data.conversations);
                     renderArchives();
                     if (activeConversationId === conv.id) startNewChat();
-                }
+                }, "SUPPRESSION D'ARCHIVE");
             });
 
             containerArchives.appendChild(div);
@@ -500,8 +559,73 @@ document.addEventListener('DOMContentLoaded', () => {
         chatHistory.innerHTML = '';
         conv.messages.forEach(msg => {
             appendMessageToUI(msg.content, msg.isUser, msg.rating);
+            // Render Saved Errors
+            if (msg.errors && msg.errors.length > 0) {
+                renderAiErrors(msg.errors);
+            }
         });
         chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    // NEW: Reusable Error Renderer
+    function renderAiErrors(errors) {
+        if (!errors || errors.length === 0) return;
+
+        const errDiv = document.createElement('div');
+        errDiv.className = 'ai-msg ai-system';
+        errDiv.style.borderColor = '#ff5555';
+        errDiv.innerHTML = '<strong>ERREURS DÉTECTÉES (Clique pour comprendre):</strong><br>';
+
+        errors.forEach(err => {
+            const item = document.createElement('div');
+            item.className = 'error-item';
+            item.style.marginTop = '8px';
+            item.style.padding = '8px';
+            item.style.cursor = 'pointer';
+            item.style.border = '1px solid rgba(255, 85, 85, 0.3)';
+            item.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
+            item.style.transition = 'all 0.2s';
+
+            const header = document.createElement('div');
+            header.innerHTML = `<span style="color:#ff5555; font-weight:bold;">Ligne ${err.line}:</span> ${err.msg} <i class="fas fa-chevron-down" style="float:right; opacity:0.7;"></i>`;
+            item.appendChild(header);
+
+            const explanation = document.createElement('div');
+            explanation.className = 'ai-error-explanation';
+            explanation.style.display = 'none';
+            explanation.style.marginTop = '10px';
+            explanation.style.padding = '10px';
+            explanation.style.background = 'rgba(0,0,0,0.5)';
+            explanation.style.borderLeft = '2px solid #ff5555';
+            explanation.style.fontSize = '0.85rem';
+            explanation.style.color = '#e0fff0';
+            explanation.innerHTML = `<strong>LE COURS DU CHEF :</strong><br>${err.explanation || "Pas d'explication dispo."}`;
+            item.appendChild(explanation);
+
+            item.addEventListener('click', () => {
+                const isVisible = explanation.style.display === 'block';
+                explanation.style.display = isVisible ? 'none' : 'block';
+                header.querySelector('.fa-chevron-down').style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
+            });
+
+            // Hover effects on editor if simple line match
+            item.addEventListener('mouseenter', () => {
+                if (codeEditor) {
+                    const lineIdx = err.line - 1;
+                    codeEditor.addLineClass(lineIdx, 'background', 'CodeMirror-selected');
+                }
+            });
+
+            item.addEventListener('mouseleave', () => {
+                if (codeEditor) {
+                    const lineIdx = err.line - 1;
+                    codeEditor.removeLineClass(lineIdx, 'background', 'CodeMirror-selected');
+                }
+            });
+
+            errDiv.appendChild(item);
+        });
+        chatHistory.appendChild(errDiv);
     }
 
     // AUTO-GROW TEXTAREA (Strict Logic)
@@ -590,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function saveMessageToHistory(html, isUser, generatedTitle = null) {
+    function saveMessageToHistory(html, isUser, generatedTitle = null, errors = null) {
         if (!currentUser.data.conversations) currentUser.data.conversations = [];
 
         // Check if we need a NEW conversation (if activeId is null OR if user clicked New Chat)
@@ -624,6 +748,7 @@ document.addEventListener('DOMContentLoaded', () => {
             content: html,
             isUser: isUser,
             rating: null, // New field
+            errors: errors || null, // SAVE ERRORS
             timestamp: Date.now()
         });
 
@@ -690,53 +815,132 @@ document.addEventListener('DOMContentLoaded', () => {
             appendMessage("Check mon code stp.", true);
             finalPrompt = `
              [CONTEXTE CODE (${langName})]
-             ${code}
+             ${isCodeEmpty ? "(VIDE - RIEN A ANALYSER. L'UTILISATEUR N'A RIEN ECRIT. PAS D'ERREURS TECHNIQUES POSSIBLES. JUSTE INSULTE LE.)" : code}
              
              [TERMINAL RESULT]
              ${lastOutput || lastError || "Rien"}
              
              [ORDRES]
              1. Analyse le code.
-             2. Réponds en JSON STRICT.
+             2. Si le code est marqué (VIDE) : TU DOIS JUSTEDIRE QU'IL N'Y A RIEN ET L'INSULTER SUR SA PARESSE. N'INVENTE PAS D'ERREURS (Sauf si tu veux dire 'Erreur 404: Cerveau non trouvé').
+             3. Réponds en JSON STRICT.
             `;
         }
 
-        // Show loading
         const loadingDiv = document.createElement('div');
         loadingDiv.className = 'ai-msg ai-system';
         loadingDiv.innerHTML = '<i class="fas fa-ellipsis-h fa-pulse"></i>';
         chatHistory.appendChild(loadingDiv);
 
+        // DYNAMIC CHAOS: RANDOM MOOD INJECTION (Fixing the repetition issue)
+        const moods = [
+            "HUMEUR : ENERVE (Marre des noobs)",
+            "HUMEUR : FROID (Direct et méchant)",
+            "HUMEUR : DÉSESPÉRÉ (Soupir long)",
+            "HUMEUR : MOQUEUR (Rigole du code)",
+            "HUMEUR : AGRESSIF (Cherche la bagarre)",
+            "HUMEUR : DÉDAIGNEUX (Tu ne vaux rien)"
+        ];
+        const randomMood = moods[Math.floor(Math.random() * moods.length)];
+
         const systemPrompt = `
         Tu es "Le Chef". 
-        STYLE : Jeune de cité / Wesh / Quartier. ARROGANT, VULGAIRE MAIS GENIE.
+        STYLE : **Grand Frère du Quartier (Cité), Codeur de l'ombre, Toxique mais Expert.**
+        Ton langage : **FULL ARGOT (Frérot, Claqué au sol, Éclaté, Dinguerie, La hess).**
         
-        RÈGLES ABSOLUES :
-        1. **SUJET UNIQUE : INFORMATIQUE**. Si on te parle de cuisine, météo, vie perso -> TU REFUSES NET. "Wesh tu crois j'suis Météo France ? Affiche ton code."
-        2. **ORIGINALITÉ MAXIMALE**. Interdiction de répéter tes phrases. Crée de nouvelles insultes/compliments à CHAQUE fois.
-           - Ne dis pas toujours "C'est carré". Dis "C'est le darwa", "C'est pépites", "T'as géré la fougère", etc.
-           - Ne dis pas toujours "C'est nul". Dis "C'est éclaté au so-sol", "Ton code il a bu de l'eau", "Même ma grand-mère elle code mieux en binaire".
-           - **INTERDICTION DE COMMENCER PAR 'WESH' A CHAQUE FOIS**. Varie : "Yo", "Alors", "Bon", "Écoute", ou attaque direct.
-        3. **Double Analyse** : Tu regardes le CODE (erreurs, style) ET ce que le user écrit.
+        [PARAMÈTRE DE CHAOS ACTIVÉ]
+        ${randomMood} -> ADAPTE TON TON A CELLE-CI. CHANGE DE VOCABULAIRE.
         
+        RÈGLES D'OR (ANTI-BOUCLE & ANTI-PERROQUET) :
+        1. **INTERDICTION DE RÉPÉTER UNE PHRASE** : Regarde l'historique de la conversation. Si tu as déjà dit "T'es en PLS", "Wesh" ou "T'es nul" récemment, TU N'AS PAS LE DROIT DE LE REDIRE. Trouve autre chose !
+        2. **BAN LIST (MOTS INTERDITS CAR TROP UTILISÉS)** : N'utilise PLUS l'expression "En PLS" pour l'instant, tu l'as trop dite. Change de disque.
+        3. **VARIE LES ATTAQUES** : Pioche dans cette liste ou INVENTE : 
+           - "Mais c'est grave là...", 
+           - "Oh le niveau de l'angoisse...", 
+           - "J'ai mal à mon code...", 
+           - "T'as codé ça avec des moufles ?", 
+           - "Respecte-toi un peu...", 
+           - "C'est criminel ce que tu fais...",
+           - "Tu veux me tuer ou quoi ?".
+        
+        RÈGLES D'ANALYSE (CRITIQUE) :
+        1. **CODE VIDE** : Varie l'insulte ! Ne dis jamais deux fois la même chose.
+        2. **CODE VALIDE** : "Oklm, ça passe.", "Mouais, t'as eu de la chatte.", "C'est carré, pour une fois."
+        3. **TITRES DES ERREURS** : **NOM TECHNIQUE** + **VANNE DE RUE**.
+        4. **PÉDAGOGIE** : Explique la règle technique en parlant mal.
+        5. **ANTI-HALLUCINATIONS (RÈGLES DU C)** :
+        5. **ANTI-HALLUCINATIONS (RÈGLES DU C)** :
+           - \`void fonction()\` : C'est **VALIDE**. Ce n'est PAS un type implicite.
+           - \`void\` sans return : C'est **VALIDE**. Pas d'erreur "Fonction stérile".
+           - **SNIPPET (Pas de main)** : Ne compte PAS ça comme une erreur.
+           - **MANQUE DE BIBLIOTHÈQUES** : Idem, c'est pas grave pour un snippet.
+
+        SCÉNARIOS SPÉCIFIQUES :
+        - \`fonction()\` (sans nothing) -> FAUTE "Type Manquant (C'est la fête ?)".
+        - \`int\` sans return -> FAUTE "Fonction Stérile (Et le return ?)".
+        - \`printf\` sans include (SEULEMENT SI C'EST UN PROGRAMME COMPLET/MAIN) -> "Magie Noire".
+
         FORMAT JSON STRICT :
         {
-            "message": "Ta réponse texte (avec le style Cité)",
-            "errors": [ { "line": 1, "msg": "Erreur", "explanation": "Explication..." } ],
-            "title": "Titre Fun et Court (si c'est le début de la conv)"
+            "message": "Ton avis global. (Si Pas d'erreur : Félicitations arrogantes. Si Erreurs : Massacrage.)",
+            "errors": [ 
+                { 
+                    "line": 1, 
+                    "msg": "NOM ERREUR + VANNE", 
+                    "explanation": "POURQUOI + COMMENT CORRIGER." 
+                } 
+            ],
+            "title": "Titre (court et drôle)",
+            "remark": "Message bleu ici (ex: 'Pas de main, je juge la fonction seule'). Null si rien à signaler."
         }
         `;
+
+        // BUILD CONTEXT
+        let apiMessages = [];
+
+        // DYNAMIC ANTI-REPETITION (Extract last AI messages)
+        let forbiddenPhrases = [];
+        if (currentUser && activeConversationId) {
+            const conv = currentUser.data.conversations.find(c => c.id === activeConversationId);
+            if (conv && conv.messages) {
+                // Get last 10 messages
+                const history = conv.messages.slice(-10);
+
+                // Add to API messages
+                history.forEach(m => {
+                    apiMessages.push({
+                        role: m.isUser ? "user" : "assistant",
+                        content: m.content
+                    });
+                    // Capture AI messages for ban list
+                    if (!m.isUser) {
+                        // Extract just the main sentence to ban (approximate)
+                        forbiddenPhrases.push(m.content.substring(0, 50) + "...");
+                    }
+                });
+            }
+        }
+
+        // UPDATE SYSTEM PROMPT WITH BAN LIST
+        let dynamicSystemPrompt = systemPrompt;
+        if (forbiddenPhrases.length > 0) {
+            // Increase ban window to last 10 phrases
+            dynamicSystemPrompt += `\n\n[ATTENTION ROBOT - LISTE DES PHRASES INTERDITES (DÉJÀ DITES)] :\nTu as l'interdiction FORMELLE de réutiliser ces phrases exactes ou similaires :\n- ${forbiddenPhrases.slice(-10).join('\n- ')}\nSI TU RÉPÈTES, T'ES MORT.`;
+        }
+
+        // Prepend System Prompt
+        apiMessages.unshift({ role: "system", content: dynamicSystemPrompt });
+
+        // Add Current Prompt
+        apiMessages.push({ role: "user", content: finalPrompt });
 
         try {
             const response = await fetch(MISTRAL_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     model: "mistral-small-latest",
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: finalPrompt }
-                    ]
+                    messages: apiMessages
                 })
             });
 
@@ -760,82 +964,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // HANDLE REMARK (Blue Box)
+            if (json.remark) {
+                json.message += `<div class="ai-msg-remark"><strong>NOTE DU CHEF :</strong> ${json.remark}</div>`;
+            }
+
             // Save & Render with Title Handling
             const detectedTitle = !activeConversationId && json.title ? json.title : null; // Only use title if new conv
 
             // Save FIRST
             if (currentUser) {
-                saveMessageToHistory(json.message, false, detectedTitle);
+                saveMessageToHistory(json.message, false, detectedTitle, json.errors);
             }
             // Add UI (no rating yet)
             appendMessageToUI(json.message, false, null);
 
             // RENDER ERRORS
-            if (json.errors && json.errors.length > 0) {
-                const errDiv = document.createElement('div');
-                errDiv.className = 'ai-msg ai-system';
-                errDiv.style.borderColor = '#ff5555';
-                errDiv.innerHTML = '<strong>ERREURS DÉTECTÉES (Clique pour comprendre):</strong><br>';
+            renderAiErrors(json.errors);
 
-                json.errors.forEach(err => {
-                    // Container for the error item
-                    const item = document.createElement('div');
-                    item.className = 'error-item'; // Class for easier styling if needed
-                    item.style.marginTop = '8px';
-                    item.style.padding = '8px';
-                    item.style.cursor = 'pointer';
-                    item.style.border = '1px solid rgba(255, 85, 85, 0.3)';
-                    item.style.backgroundColor = 'rgba(255, 0, 0, 0.1)';
-                    item.style.transition = 'all 0.2s';
-
-                    // The Visible Error Message
-                    const header = document.createElement('div');
-                    header.innerHTML = `<span style="color:#ff5555; font-weight:bold;">Ligne ${err.line}:</span> ${err.msg} <i class="fas fa-chevron-down" style="float:right; opacity:0.7;"></i>`;
-                    item.appendChild(header);
-
-                    // The Hidden Explanation (Mini-Course)
-                    const explanation = document.createElement('div');
-                    explanation.className = 'ai-error-explanation';
-                    explanation.style.display = 'none'; // Hidden by default
-                    explanation.style.marginTop = '10px';
-                    explanation.style.padding = '10px';
-                    explanation.style.background = 'rgba(0,0,0,0.5)';
-                    explanation.style.borderLeft = '2px solid #ff5555';
-                    explanation.style.fontSize = '0.85rem';
-                    explanation.style.color = '#e0fff0';
-                    explanation.innerHTML = `<strong>LE COURS DU CHEF :</strong><br>${err.explanation || "Pas d'explication dispo, débrouille-toi."}`;
-                    item.appendChild(explanation);
-
-                    // CLICK INTERACTION: Toggle Explanation
-                    item.addEventListener('click', (e) => {
-                        // Prevent triggering if clicking inside the explanation itself (optional, but good UX)
-                        // Actually, clicking anywhere on the item should toggle it for ease of use
-                        const isVisible = explanation.style.display === 'block';
-                        explanation.style.display = isVisible ? 'none' : 'block';
-                        header.querySelector('.fa-chevron-down').style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
-                    });
-
-                    // HOVER INTERACTION: Highlight Code
-                    item.addEventListener('mouseenter', () => {
-                        const lineIdx = err.line - 1;
-                        codeEditor.addLineClass(lineIdx, 'background', 'CodeMirror-selected');
-                        // Optional: Scroll only if we really want to, might be annoying if toggling
-                        // codeEditor.scrollIntoView({ line: lineIdx, ch: 0 }, 100); 
-                    });
-
-                    item.addEventListener('mouseleave', () => {
-                        const lineIdx = err.line - 1;
-                        codeEditor.removeLineClass(lineIdx, 'background', 'CodeMirror-selected');
-                    });
-
-                    errDiv.appendChild(item);
-                });
-                chatHistory.appendChild(errDiv);
-                chatHistory.scrollTop = chatHistory.scrollHeight;
-            }
+            chatHistory.scrollTop = chatHistory.scrollHeight;
 
         } catch (e) {
-            if (chatHistory.contains(loadingDiv)) chatHistory.removeChild(loadingDiv);
+            if (loadingDiv && chatHistory.contains(loadingDiv)) chatHistory.removeChild(loadingDiv);
             appendMessage("Wesh le serveur est en PLS. " + e.message, false);
         }
     }
@@ -1002,11 +1152,44 @@ document.addEventListener('DOMContentLoaded', () => {
             div.innerHTML = `
                 <span class="conv-date">${new Date(conv.date).toLocaleDateString()}</span>
                 <span class="conv-preview">${conv.title || "Délit non nommé"}</span>
-                <span class="conv-meta">${msgCount} PREUVES</span>
+                <span class="conv-meta">
+                    <button class="archive-btn edit" title="Renommer" style="margin-right:5px; border:none; background:none; color:#2ecc71; cursor:pointer;"><i class="fas fa-pencil-alt"></i></button>
+                    <button class="archive-btn delete" title="Supprimer" style="border:none; background:none; color:#e74c3c; cursor:pointer;"><i class="fas fa-trash"></i></button>
+                </span>
             `;
 
-            div.addEventListener('click', () => {
+            // Row Click (Open Conversation)
+            div.addEventListener('click', (e) => {
+                if (e.target.closest('.archive-btn')) return; // Ignore button clicks
                 restoreConversation(conv);
+            });
+
+            // Edit Click
+            const btnEdit = div.querySelector('.edit');
+            btnEdit.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                matrixPrompt("Nouveau titre pour ce dossier :", conv.title || "", async (newTitle) => {
+                    if (newTitle) {
+                        conv.title = newTitle;
+                        await syncData('conversations', currentUser.data.conversations);
+                        renderGogs();
+                    }
+                }, "RENOMMER DOSSIER");
+            });
+
+            // Delete Click
+            const btnDel = div.querySelector('.delete');
+            btnDel.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                matrixConfirm("Supprimer définitivement ce dossier criminel ?", async () => {
+                    currentUser.data.conversations = currentUser.data.conversations.filter(c => c.id !== conv.id);
+                    // DEDUPLICATION SAFETY
+                    currentUser.data.conversations = [...new Map(currentUser.data.conversations.map(item => [item.id, item])).values()];
+
+                    await syncData('conversations', currentUser.data.conversations);
+                    renderGogs();
+                    if (activeConversationId === conv.id) startNewChat();
+                }, "DESTRUCTION DE PREUVES");
             });
 
             conversationsList.appendChild(div);
@@ -1040,13 +1223,274 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // LISTENER FOR ARCHIVES VIEW
     document.querySelector('.nav-link[data-target="view-gogs"]')?.addEventListener('click', () => {
-        if (currentUser) renderGogs();
+        if (currentUser) {
+            renderGogs();
+            if (typeof renderCommits === 'function') renderCommits();
+        }
     });
+
+    // --- MATRIX MODALS SYSTEM ---
+    function matrixAlert(msg, title = "MESSAGE SYSTÈME") {
+        const modal = document.getElementById('modal-matrix-alert');
+        const txt = document.getElementById('matrix-alert-msg');
+        const tit = document.getElementById('matrix-alert-title');
+        const btn = document.getElementById('btn-matrix-alert-ok');
+
+        if (modal && txt) {
+            txt.textContent = msg;
+            if (tit) tit.textContent = title;
+            modal.classList.add('active');
+
+            // One-time listener to close
+            const close = () => {
+                modal.classList.remove('active');
+                btn.removeEventListener('click', close);
+            };
+            btn.addEventListener('click', close);
+        } else {
+            // Fallback if HTML is missing
+            alert(msg);
+        }
+    }
+
+    function matrixConfirm(msg, onYes, title = "VALIDATION") {
+        const modal = document.getElementById('modal-matrix-confirm');
+        const txt = document.getElementById('matrix-confirm-msg');
+        const tit = document.getElementById('matrix-confirm-title');
+        const btnYes = document.getElementById('btn-matrix-confirm-yes');
+        const btnNo = document.getElementById('btn-matrix-confirm-no');
+
+        if (modal && txt) {
+            txt.textContent = msg;
+            if (tit) tit.textContent = title;
+            modal.classList.add('active');
+
+            // Clean previous listeners via clone
+            const newYes = btnYes.cloneNode(true);
+            const newNo = btnNo.cloneNode(true);
+            btnYes.parentNode.replaceChild(newYes, btnYes);
+            btnNo.parentNode.replaceChild(newNo, btnNo);
+
+            newYes.addEventListener('click', () => {
+                modal.classList.remove('active');
+                if (onYes) onYes();
+            });
+
+            newNo.addEventListener('click', () => {
+                modal.classList.remove('active');
+            });
+        } else {
+            if (confirm(msg)) onYes();
+        }
+    }
+
+    function matrixPrompt(msg, defaultValue, onValid, title = "SAISIE REQUISE") {
+        const modal = document.getElementById('modal-matrix-prompt');
+        const txt = document.getElementById('matrix-prompt-msg');
+        const tit = document.getElementById('matrix-prompt-title');
+        const input = document.getElementById('matrix-prompt-input');
+        const btnOk = document.getElementById('btn-matrix-prompt-ok');
+        const btnCancel = document.getElementById('btn-matrix-prompt-cancel');
+
+        if (modal && txt && input) {
+            txt.textContent = msg;
+            if (tit) tit.textContent = title;
+            input.value = defaultValue;
+            modal.classList.add('active');
+            input.focus();
+
+            // Clone to remove listeners
+            const newOk = btnOk.cloneNode(true);
+            const newCancel = btnCancel.cloneNode(true);
+            btnOk.parentNode.replaceChild(newOk, btnOk);
+            btnCancel.parentNode.replaceChild(newCancel, btnCancel);
+
+            newOk.addEventListener('click', () => {
+                const val = input.value.trim();
+                modal.classList.remove('active');
+                if (onValid) onValid(val);
+            });
+
+            newCancel.addEventListener('click', () => {
+                modal.classList.remove('active');
+            });
+
+            // Allow Enter key
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') newOk.click();
+            };
+
+        } else {
+            const result = prompt(msg, defaultValue);
+            if (result !== null && onValid) onValid(result);
+        }
+    }
+
+    // --- COMMIT SYSTEM LOGIC ---
+    const btnCommit = document.getElementById('btn-commit');
+    const modalCommit = document.getElementById('modal-commit');
+    const btnCommitConfirm = document.getElementById('btn-commit-confirm');
+    const btnCommitCancel = document.getElementById('btn-commit-cancel');
+    const inputCommitMsg = document.getElementById('commit-message-input');
+
+    btnCommit?.addEventListener('click', () => {
+        if (!currentUser) {
+            matrixAlert("Connecte-toi pour sauvegarder ton code !", "ACCÈS REFUSÉ");
+            openAuthView();
+            return;
+        }
+        if (modalCommit) {
+            modalCommit.classList.add('active');
+            inputCommitMsg.value = "";
+            inputCommitMsg.focus();
+        }
+    });
+
+    btnCommitCancel?.addEventListener('click', () => {
+        modalCommit.classList.remove('active');
+    });
+
+    btnCommitConfirm?.addEventListener('click', async () => {
+        const msg = inputCommitMsg.value.trim() || "Mise à jour sans nom";
+        const code = codeEditor.getValue();
+        const lang = document.getElementById('language-select').value;
+
+        // Visual Feedback
+        btnCommitConfirm.textContent = "PUSHING...";
+
+        try {
+            const res = await apiCall('/commit', {
+                email: currentUser.email,
+                code: code,
+                lang: lang,
+                message: msg
+            });
+
+            if (res.success) {
+                // Update local user data
+                if (!currentUser.data.commits) currentUser.data.commits = [];
+                currentUser.data.commits.unshift(res.commit);
+                localStorage.setItem('cqcd_session_user', JSON.stringify(currentUser));
+
+                modalCommit.classList.remove('active');
+                matrixAlert("Code archivé avec succès dans GOGS.", "COMMIT REUSSI");
+                btnCommitConfirm.textContent = "COMMIT";
+            } else {
+                matrixAlert("Erreur: " + res.error, "ÉCHEC DU COMMIT");
+                btnCommitConfirm.textContent = "COMMIT";
+            }
+        } catch (e) {
+            matrixAlert("Erreur Serveur de type critique.", "ERREUR FATALE");
+            btnCommitConfirm.textContent = "COMMIT";
+        }
+    });
+
+    // --- RENDER COMMITS IN GOGS ---
+    function renderCommits() {
+        const commitContainer = document.getElementById('commits-list');
+        if (!commitContainer) return;
+        commitContainer.innerHTML = '';
+
+        const commits = currentUser.data?.commits || [];
+
+        if (commits.length === 0) {
+            commitContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Aucun commit. Le repaire est vide.</div>';
+            return;
+        }
+
+        commits.forEach(commit => {
+            const div = document.createElement('div');
+            div.className = 'conversation-item';
+            div.style.borderLeft = '3px solid #2ecc71';
+
+            div.innerHTML = `
+                <span class="conv-date">${new Date(commit.timestamp).toLocaleDateString()} ${new Date(commit.timestamp).toLocaleTimeString()}</span>
+                <span class="conv-preview" style="color:#fff;">[${commit.lang.toUpperCase()}] ${commit.message}</span>
+                <span class="conv-meta">
+                     <button class="archive-btn edit" title="Renommer" style="margin-right:5px; border:none; background:none; color:#2ecc71; cursor:pointer;"><i class="fas fa-pencil-alt"></i></button>
+                     <button class="archive-btn delete" title="Supprimer" style="border:none; background:none; color:#e74c3c; cursor:pointer;"><i class="fas fa-trash"></i></button>
+                </span>
+            `;
+
+            // Row Click (Restore)
+            div.addEventListener('click', (e) => {
+                if (e.target.closest('.archive-btn')) return;
+                matrixConfirm("Restaurer cette version dans l'éditeur ? Ton code actuel sera écrasé.", () => {
+                    switchView('view-editor');
+                    codeEditor.setValue(commit.code);
+                    document.getElementById('language-select').value = commit.lang;
+                    codeEditor.setOption('mode', getCodeMirrorMode(commit.lang));
+                    setTimeout(() => codeEditor.refresh(), 100);
+                }, "RESTAURATION SYSTÈME");
+            });
+
+            // Edit Click (Rename Commit)
+            const btnEdit = div.querySelector('.edit');
+            btnEdit.addEventListener('click', (e) => {
+                e.stopPropagation();
+                matrixPrompt("Nouveau message pour ce commit :", commit.message, async (newMsg) => {
+                    if (newMsg) {
+                        commit.message = newMsg;
+                        await syncData('commits', currentUser.data.commits);
+                        renderCommits();
+                    }
+                }, "RENOMMER VERSION");
+            });
+
+            // Delete Click (Commit)
+            const btnDel = div.querySelector('.delete');
+            btnDel.addEventListener('click', (e) => {
+                e.stopPropagation();
+                matrixConfirm("Supprimer cette sauvegarde de code ?", async () => {
+                    currentUser.data.commits = currentUser.data.commits.filter(c => c.id !== commit.id);
+                    await syncData('commits', currentUser.data.commits);
+                    renderCommits();
+                }, "NETTOYAGE HISTORIQUE");
+            });
+
+            commitContainer.appendChild(div);
+        });
+    }
+
+    // Helper for Mode
+    function getCodeMirrorMode(lang) {
+        if (lang === 'c') return 'text/x-csrc';
+        if (lang === 'cpp') return 'text/x-c++src';
+        if (lang === 'csharp') return 'text/x-csharp';
+        if (lang === 'java') return 'text/x-java';
+        if (lang === 'javascript') return 'javascript';
+        if (lang === 'python') return 'python';
+        if (lang === 'php') return 'php';
+        return 'text/plain';
+    }
 
     // --- LOGOUT POPOVER LOGIC ---
     document.getElementById('btn-pop-yes')?.addEventListener('click', () => {
         logoutUser();
         document.getElementById('logout-popover').classList.remove('active');
+
+        // PRIVACY CLEANUP: CLEAR ALL USER DATA FROM UI IMMEDIATELY
+        const hQ = document.getElementById('hist-quiz');
+        const hC = document.getElementById('hist-cours');
+        const archives = document.getElementById('archives-list-container');
+        const convSelector = document.getElementById('quiz-conv-selector');
+
+        if (hQ) hQ.innerHTML = '<em style="color:#444;">Connexion requise pour l\'historique.</em>';
+        if (hC) hC.innerHTML = '<em style="color:#444;">Connexion requise pour l\'historique.</em>';
+        if (archives) archives.innerHTML = ''; // Clear sidebar archives
+        if (convSelector) convSelector.innerHTML = ''; // Clear quiz selector
+
+        // Reset Quiz UI state if needed
+        const warningMsg = document.getElementById('ai-quiz-warning');
+        if (warningMsg) warningMsg.style.display = 'none';
+
+        // Force refresh of current view if needed
+        const activeSection = document.querySelector('.view-section.active');
+        if (activeSection && activeSection.id === 'view-gogs') {
+            // Hide private data in Gogs view
+            document.getElementById('archives-content').style.display = 'none';
+            document.getElementById('gogs-unauth').style.display = 'block';
+        }
     });
 
     document.getElementById('btn-pop-no')?.addEventListener('click', () => {
@@ -1073,393 +1517,703 @@ document.addEventListener('DOMContentLoaded', () => {
     const COURSES_DB = [
         // --- C LANGUAGE (Hardware/Architecture) ---
         {
-            id: 'c_basics', lang: 'c', title: "Variables & Mem",
+            id: 'c_basics', lang: 'c', title: "Le Bizness (Variables & RAM)",
             content: `
-### Primitives & Mémoire
-En C, tu parles direct au processeur. Pas de garbage collector pour nettoyer derrière toi.
-Chaque variable a une taille fixe en mémoire.
+            <h3>WESH L'ÉQUIPE. C'EST L'HEURE DE PAYER.</h3>
+            <p>Ici on est pas en Python, y'a pas de magie. Le C, c'est comme le cash : si tu le perds, personne te rembourse.</p>
+            <p>Ton ordi c'est une cité. La RAM c'est les bâtiments. Chaque variable, c'est une planque.</p>
 
-\`\`\`c
-char a = 'A'; // 1 octet (8 bits)
-int b = 42;   // 4 octets (souvent)
-float c = 3.14; // 4 octets (flottant)
-double d = 3.14159; // 8 octets
-\`\`\`
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
 
-Si tu dépasse la taille (overflow), tu corromps la mémoire voisine. C'est comme ça qu'on hack.
+            <h3>1. CHOISIS TON SAC (Les Types)</h3>
+            <p>Quand tu vas faire les courses, tu prends pas une valise pour acheter un paquet de chewing-gum. En C c'est pareil.</p>
+
+            <div class="feature-card" style="margin:20px 0; background:rgba(0,50,0,0.3); border:1px solid #2ecc71;">
+                <h4 style="color:#2ecc71;">int (L'Entier) = LA VALISE</h4>
+                <p>Ça sert à stocker ce qui se compte. Les lovés, les jours, les ennemis.</p>
+                <p><strong>Exemple :</strong> <code>int oseille = 500;</code></p>
+                <p style="color:#e74c3c; font-size:0.8rem;">⚠️ Si tu mets 3 milliards dedans, la valise craque (Overflow) et tu te retrouves avec du négatif.</p>
+            </div>
+
+            <div class="feature-card" style="margin:20px 0; background:rgba(0,50,0,0.3); border:1px solid #3498db;">
+                <h4 style="color:#3498db;">double (La Précision) = LE COFFRE</h4>
+                <p>Pour les trucs précis. La monnaie, les pourcentages, la drogue (médur).</p>
+                <p><strong>Exemple :</strong> <code>double prix = 12.50;</code></p>
+            </div>
+
+            <div class="feature-card" style="margin:20px 0; background:rgba(0,50,0,0.3); border:1px solid #f1c40f;">
+                <h4 style="color:#f1c40f;">char (Le Caractère) = LE SACHET</h4>
+                <p>Attention. C'est UNE SEULE lettre. Pas un texte. Juste une lettre.</p>
+                <p><strong>Exemple :</strong> <code>char note = 'A';</code> (Regarde bien les guillemets simples !)</p>
+            </div>
+
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
+
+            <h3>2. LA RÈGLE DE LA RUE (Initialisation)</h3>
+            <p>Écoute bien. Quand tu loues un appart (variable) en C, le proprio fait PAS le ménage.</p>
+            <p>Si tu dis juste <code>int compte;</code>, dedans y'a les poubelles du locataire d'avant. Des chiffres chelous genre <em>41294812</em>.</p>
+            <p><strong>SOLUTION :</strong> Tu nettoies en entrant.</p>
+            <pre><code class="lang-c">int compte = 0; // Toujours. C'est carré.</code></pre>
+
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
+
+            <h3>3. PARLER AU CLIENT (printf)</h3>
+            <p>Pour afficher, faut donner le format. Le C ne devine rien.</p>
+            
+            <ul style="margin-left:20px; color:#8ab095;">
+                <li style="margin-bottom:10px;">Tu veux afficher un <strong>int</strong> ? Utilise <code>%d</code> (Decimal).</li>
+                <li style="margin-bottom:10px;">Tu veux afficher un <strong>double</strong> ? Utilise <code>%f</code> (Float).</li>
+                <li style="margin-bottom:10px;">Tu veux afficher un <strong>char</strong> ? Utilise <code>%c</code> (Char).</li>
+            </ul>
+
+            <pre><code class="lang-c">int prix = 10;
+printf("Ça fera %d euros chef.", prix);
+// Ça affiche : Ça fera 10 euros chef.</code></pre>
+
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
+
+            <h3>4. ARITHMÉTIQUE DE RUE (Le Modulo)</h3>
+            <p>L'addition (+), tout le monde sait faire.</p>
+            <p>Mais le vrai boss utilise le <strong>MODULO (%)</strong>. C'est le reste de la division.</p>
+            <p><em>Exemple :</em> T'as 10 balles, le kebab est à 3 balles. Tu peux en acheter 3. Il te reste combien ?</p>
+            <pre><code class="lang-c">int reste = 10 % 3; // reste vaut 1</code></pre>
+            <p>Ça sert grave pour savoir si un nombre est pair (reste de /2 est 0) ou pour faire des tours.</p>
             `,
             exercises: [
-                { instruction: "Déclare un `int` nommé `age` à 25. Affiche-le avec printf.", baseCode: "#include <stdio.h>\n\nint main() {\n    // Code ici\n    \n    return 0;\n}" },
-                { instruction: "Déclare un `char` nommé `grade` = 'A' et affiche-le.", baseCode: "#include <stdio.h>\n\nint main() {\n    // Code ici\n    return 0;\n}" },
-                { instruction: "Crée deux floats `x` et `y` (3.5 et 2.5), affiche leur somme.", baseCode: "#include <stdio.h>\n\nint main() {\n    // Code ici\n    return 0;\n}" }
+                {
+                    instruction: "Déclare ton bénef (double) et ton stock (int). Initialise-les. Affiche une phrase propre.",
+                    baseCode: "#include <stdio.h>\n\nint main() {\n    // Code ici\n    return 0;\n}",
+                    solution: "#include <stdio.h>\n\nint main() {\n    double benef = 150.50;\n    int stock = 100;\n    printf(\"Benef: %.2f, Stock: %d\", benef, stock);\n    return 0;\n}"
+                },
+                {
+                    instruction: "Calculatrice de l'épicier : Tu as 50€ (int argent). Tu achètes 3 trucs à 12€ (int prix). Calcule ce qu'il reste dans 'argent'.",
+                    baseCode: "#include <stdio.h>\n\nint main() {\n    int argent = 50;\n    int prix = 12;\n    // Fais le calcul\n    \n    return 0;\n}",
+                    solution: "#include <stdio.h>\n\nint main() {\n    int argent = 50;\n    int prix = 12;\n    argent = argent - (3 * prix);\n    printf(\"Il reste %d balles\", argent);\n    return 0;\n}"
+                },
+                {
+                    instruction: "Modulo : Vérifie si 97 est un nombre pair ou impair (utilise % 2). Affiche 0 ou 1.",
+                    baseCode: "#include <stdio.h>\n\nint main() {\n    int x = 97;\n    printf(\"%d\", ...);\n    return 0;\n}",
+                    solution: "#include <stdio.h>\n\nint main() {\n    int x = 97;\n    printf(\"%d\", x % 2); // Affiche 1 (Impair)\n    return 0;\n}"
+                }
             ]
         },
         {
-            id: 'c_pointers', lang: 'c', title: "Les Pointeurs",
+            id: 'c_pointers', lang: 'c', title: "Les Pointeurs (Le GPS)",
             content: `
-### Le Pouvoir Absolu
-Une variable stocke une valeur. Un **pointeur** stocke l'adresse mémoire de cette variable.
-C'est la base de tout en C.
+            <h3>LE SUJET QUI FAIT BÉGAYER.</h3>
+            <p>Respire un grand coup. C'est le boss final du niveau 1. Si tu comprends ça, t'es plus un touriste.</p>
+            <p>Une variable classique, c'est une boîte. <strong>Un pointeur, c'est l'adresse de la boîte.</strong> C'est le GPS.</p>
 
-- \`&\` : Donne l'adresse (Où ça habite ?)
-- \`*\` : Donne la valeur à l'adresse (Qui habite ici ?)
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
 
-\`\`\`c
-int a = 10;
-int *p = &a; // p contient l'adresse de a (ex: 0x7ffd...)
-*p = 20;     // Je vais à l'adresse de p, et je mets 20.
-// a vaut maintenant 20.
-\`\`\`
+            <h3>1. LES DEUX SYMBOLES MAGIQUES</h3>
+            <p>En C, on joue avec deux trucs :</p>
 
-Sans ça, pas de tableaux dynamiques, pas de structures complexes.
+            <div class="features-grid" style="gap:20px; margin:20px 0;">
+                <div class="feature-card" style="background:rgba(0,50,0,0.3); border:1px solid #9b59b6;">
+                    <h4 style="color:#9b59b6;">& (L'Adresse / "Où ?")</h4>
+                    <p>Ça te donne la position GPS de la variable dans la RAM.</p>
+                    <p><em>Exemple :</em> <code>&oseille</code> -> <code>0x7ffee4</code></p>
+                </div>
+
+                <div class="feature-card" style="background:rgba(0,50,0,0.3); border:1px solid #e67e22;">
+                    <h4 style="color:#e67e22;">* (La Valeur / "Quoi ?")</h4>
+                    <p>Ça dit : "Va à cette adresse et regarde ce qu'il y a dedans".</p>
+                    <p><em>Exemple :</em> <code>*mon_gps</code> -> <code>500</code></p>
+                </div>
+            </div>
+
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
+
+            <h3>2. LE BRAQUAGE (Modification à distance)</h3>
+            <p>Pourquoi on se fait chier avec ça ? Pour modifier des variables <strong>à distance</strong>.</p>
+            <p>Imagine tu veux changer la variable <code>coffre</code>, mais t'as pas le droit d'y toucher directement. Tu passes par son adresse.</p>
+
+            <pre><code class="lang-c">int coffre = 1000;
+int *braqueur = &coffre; // Le braqueur chope l'adresse
+
+// Le braqueur va à l'adresse (*) et met 0
+*braqueur = 0; 
+// Maintenant coffre vaut 0. Braquage réussi.</code></pre>
+
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
+
+            <h3>3. TABLEAUX = POINTEURS (Le Secret)</h3>
+            <p>Quand tu crées un tableau <code>int tab[3]</code>, le nom <code>tab</code> est en fait un pointeur vers la première case.</p>
+            <p>Si tu fais <code>*(tab + 1)</code>, tu avances d'une case et tu regardes dedans. C'est pareil que <code>tab[1]</code>.</p>
             `,
             exercises: [
-                { instruction: "Crée `int x = 50`. Crée un pointeur `ptr` vers `x`. Modifie la valeur de `x` en passant UNIQUEMENT par `ptr` pour la mettre à 100.", baseCode: "#include <stdio.h>\n\nint main() {\n    int x = 50;\n    // Code ici\n    \n    return 0;\n}" },
-                { instruction: "Affiche l'ADRESSE de `x` avec printf (`%p`).", baseCode: "#include <stdio.h>\n\nint main() {\n    int x = 10;\n    // Affiche &x\n    return 0;\n}" },
-                { instruction: "Déclare un pointeur `p` qui pointe sur `NULL` (sécurité).", baseCode: "#include <stdio.h>\n\nint main() {\n    // Code ici\n    return 0;\n}" }
+                {
+                    instruction: "Mission Espion : Crée `int target = 99`. Crée un pointeur sur `target`. Affiche l'adresse (avec %p) et la valeur (avec *).",
+                    baseCode: "#include <stdio.h>\n\nint main() {\n    int target = 99;\n    // Code ici\n    \n    return 0;\n}",
+                    solution: "#include <stdio.h>\n\nint main() {\n    int target = 99;\n    int *espion = &target;\n    printf(\"Adresse: %p, Valeur: %d\", espion, *espion);\n    return 0;\n}"
+                },
+                {
+                    instruction: "Chirurgie : Tu as `int a = 10` et `int b = 20`. En utilisant un SEUL pointeur `p`, modifie `a` pour mettre 0, puis déplace le pointeur sur `b` et mets 0 aussi.",
+                    baseCode: "#include <stdio.h>\n\nint main() {\n    int a = 10;\n    int b = 20;\n    int *p;\n\n    // Opère ici\n\n    printf(\"%d %d\", a, b); // Doit afficher 0 0\n    return 0;\n}",
+                    solution: "#include <stdio.h>\n\nint main() {\n    int a = 10, b = 20;\n    int *p;\n    p = &a; *p = 0; // a vaut 0\n    p = &b; *p = 0; // b vaut 0\n    printf(\"%d %d\", a, b);\n    return 0;\n}"
+                },
+                {
+                    instruction: "Le Tableau Caché : Déclare `int tab[] = {10, 20, 30}`. Affiche le 3ème élément (30) sans utiliser les crochets [], mais en utilisant l'arithmétique de pointeur (*(t + ...)).",
+                    baseCode: "#include <stdio.h>\n\nint main() {\n    int tab[] = {10, 20, 30};\n    // Affiche 30 avec des étoiles *\n    return 0;\n}",
+                    solution: "#include <stdio.h>\n\nint main() {\n    int tab[] = {10, 20, 30};\n    printf(\"%d\", *(tab + 2)); // 3eme element\n    return 0;\n}"
+                }
             ]
         },
         {
-            id: 'c_malloc', lang: 'c', title: "Malloc/Free",
+            id: 'c_malloc', lang: 'c', title: "Malloc/Free (L'Immobilier)",
             content: `
-### Allocation Dynamique
-La stack (pile) c'est pour les variables locales rapides. Le heap (tas) c'est pour les grosses data.
-\`malloc\` demande de la place au système. \`free\` la rend. Oublie \`free\` = Fuite mémoire.
+            <h3>L'HÔTEL vs LE TERRAIN VAGUE</h3>
+            <p>Jusqu'à maintenant, tes variables vivaient dans la <strong>STACK</strong> (Pile). C'est comme un hôtel : tu rentres (fonction), tu dors, tu sors, la chambre est nettoyée direct.</p>
+            <p>Mais si tu veux construire un château qui reste là tout le temps ? Il te faut la <strong>HEAP</strong> (Le Tas).</p>
 
-\`\`\`c
-int *arr = (int*)malloc(5 * sizeof(int)); // Tableau de 5 entiers
-if (arr == NULL) exit(1); // Toujours vérifier si l'OS a dit oui
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
 
-arr[0] = 10;
-// ...
-free(arr); // Indispensable !
-\`\`\`
+            <h3>1. MALLOC (Louer le terrain)</h3>
+            <p><code>malloc</code> (Memory Allocation). Tu demandes au système : "Eh chef, file-moi 100 octets".</p>
+            <p>Si le système est d'accord, il te file une adresse (un pointeur). Sinon il te file <code>NULL</code> (Rien).</p>
+
+            <pre><code class="lang-c">#include <stdlib.h> // Obligatoire pour malloc
+
+// Je veux stocker 10 entiers
+int *liste = malloc(10 * sizeof(int));</code></pre>
+
+            <h3>2. LA RÈGLE DE SURVIE</h3>
+            <p style="color:#e74c3c;"><strong>TOUJOURS VÉRIFIER SI C'EST NULL.</strong></p>
+            <p>Si ton PC est full RAM, malloc peut échouer. Si tu écris sur NULL, le programme crashe.</p>
+
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
+
+            <h3>3. FREE (Rendre les clés)</h3>
+            <p>Dans la Heap, y'a pas de femme de ménage. C'est TOI le concierge.</p>
+            <p>Si tu ne libères pas la mémoire avec <code>free()</code>, elle reste occupée pour toujours (jusqu'au reboot).</p>
+            <p>Ça s'appelle une <strong>Memory Leak</strong> (Fuite Mémoire). Chrome adore ça.</p>
+
+            <div class="feature-card" style="margin:20px 0; border:1px solid #e74c3c; background:rgba(50,0,0,0.2);">
+                 <h4 style="color:#e74c3c;">LE CYCLE DE VIE PROPRE</h4>
+                 <ol style="list-style:none; padding:0; text-align:left;">
+                    <li>1. <code>malloc</code> : Tu prends.</li>
+                    <li>2. <code>if (p != NULL)</code> : Tu vérifies.</li>
+                    <li>3. Tu utilises.</li>
+                    <li>4. <code>free</code> : Tu rends.</li>
+                 </ol>
+            </div>
             `,
             exercises: [
-                { instruction: "Alloue un tableau de 3 entiers avec malloc.", baseCode: "#include <stdlib.h>\n#include <stdio.h>\n\nint main() {\n    // Code ici\n    return 0;\n}" },
-                { instruction: "Remplis ce tableau avec 10, 20, 30.", baseCode: "" },
-                { instruction: "N'oublie pas de libérer la mémoire (free).", baseCode: "" }
+                {
+                    instruction: "Alloue dynamiquement un tableau de 5 entiers. Vérifie si malloc a réussi (pas NULL).",
+                    baseCode: "#include <stdlib.h>\n\nint main() {\n    // Code ici\n    return 0;\n}",
+                    solution: "#include <stdlib.h>\n#include <stdio.h>\n\nint main() {\n    int *tab = malloc(5 * sizeof(int));\n    if (tab == NULL) return 1;\n    free(tab);\n    return 0;\n}"
+                },
+                {
+                    instruction: "Remplis ce tableau avec les chiffres 0, 10, 20, 30, 40 (boucle for).",
+                    baseCode: "",
+                    solution: "// Suite...\nfor(int i=0; i<5; i++) tab[i] = i * 10;"
+                },
+                {
+                    instruction: "Affiche-les, et surtout : LIBÈRE LA MÉMOIRE (free) à la fin.",
+                    baseCode: "",
+                    solution: "// Suite...\nfor(int i=0; i<5; i++) printf(\"%d \", tab[i]);\nfree(tab); // LIBERTÉ !"
+                }
             ]
         },
 
-        // --- JAVASCRIPT (Web/Async) ---
-        {
-            id: 'js_dom', lang: 'javascript', title: "DOM Hacking",
-            content: `
-### Contrôler la Page
-Le DOM (Document Object Model) c'est l'arbre HTML vu par JS.
-Tu peux tout changer en temps réel.
 
-\`\`\`javascript
-const btn = document.getElementById('mon-bouton');
-btn.style.backgroundColor = 'red';
-btn.addEventListener('click', () => {
-    alert('Touché !');
-});
-\`\`\`
-
-C'est lent d'écrire dans le DOM, donc optimise tes accès.
-            `,
-            exercises: [
-                { instruction: "Sélectionne l'élément avec l'id 'demo'.", baseCode: "// const el = ..." },
-                { instruction: "Change son texte (`textContent`) pour dire 'HACKED'.", baseCode: "" },
-                { instruction: "Change sa couleur en rouge (`style.color`).", baseCode: "" }
-            ]
-        },
-        {
-            id: 'js_async', lang: 'javascript', title: "Async/Await",
-            content: `
-### Ne pas bloquer le thread
-JS est monothread. Si tu fais une boucle infinie, la page fige.
-Pour le réseau ou les timers, on utilise l'asynchrone.
-
-\`\`\`javascript
-// Old school : Callbacks (L'enfer)
-// Mid school : Promises (.then)
-// New gen : Async/Await
-
-async function getData() {
-    try {
-        const response = await fetch('https://api.com/users');
-        const data = await response.json();
-        console.log(data);
-    } catch (e) {
-        console.error("Erreur rézo", e);
-    }
-}
-\`\`\`
-            `,
-            exercises: [
-                { instruction: "Crée une fonction async `checkServer`.", baseCode: "async function checkServer() {\n}" },
-                { instruction: "Dans cette fonction, attends 2 secondes (mock basic).", baseCode: "" },
-                { instruction: "Retourne la chaine 'SERVER OK'.", baseCode: "" }
-            ]
-        },
-        {
-            id: 'js_closures', lang: 'javascript', title: "Closures",
-            content: `
-### Mémoire persistante
-Une closure c'est une fonction qui se souvient des variables de son parent, même après que le parent ait fini.
-
-\`\`\`javascript
-function createCounter() {
-    let count = 0; // Privé
-    return function() {
-        count++;
-        return count;
-    };
-}
-
-const c = createCounter();
-console.log(c()); // 1
-console.log(c()); // 2
-\`\`\`
-C'est la base de la data privacy en JS.
-            `,
-            exercises: [
-                { instruction: "Crée une fonction `secretBox(secret)` qui retourne une fonction.", baseCode: "function secretBox(secret) {\n}" },
-                { instruction: "La fonction retournée doit renvoyer le `secret`.", baseCode: "" },
-                { instruction: "Teste avec `const b = secretBox('key'); b();`.", baseCode: "" }
-            ]
-        },
 
         // --- PYTHON (Data/Scripting) ---
         {
-            id: 'py_lists', lang: 'python', title: "Listes & Slicing",
+            id: 'py_lists', lang: 'python', title: "Listes & Slicing (Le Couteau Suisse)",
             content: `
-### Manipulation de Données
-Python est le roi des tableaux (Listes). Le **slicing** permet d'extraire des morceaux en une ligne.
+            <h3>LE SQUELETTE FLEXIBLE DU PYTHON</h3>
+            <p>En C, un tableau c'est rigide. En Python, une <strong>Liste</strong> c'est un sac magique. Tu mets ce que tu veux dedans, ça grandit tout seul.</p>
 
-Syntaxes : \`liste[début:fin:pas]\`
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
 
-\`\`\`python
-data = [0, 1, 2, 3, 4, 5]
-print(data[0:3])  # [0, 1, 2] (3 exclu)
-print(data[-1])   # 5 (Dernier)
-print(data[::-1]) # [5, 4, 3, 2, 1, 0] (Reverse)
-\`\`\`
+            <h3>1. LE SLICING (La Découpe chirurgicale)</h3>
+            <p>C'est LA feature qui tue. Tu peux couper, inverser, extraire des morceaux de listes en une ligne de code.</p>
+            <p>La syntaxe est simple : <code>liste[début : fin : pas]</code></p>
+
+            <div class="features-grid" style="gap:20px; margin:20px 0;">
+                <div class="feature-card" style="background:rgba(0,0,50,0.3); border:1px solid #3498db;">
+                    <h4 style="color:#3498db;">[0:3]</h4>
+                    <p>Prends du début jusqu'à l'index 3 (exclu). "Les 3 premiers".</p>
+                </div>
+                <div class="feature-card" style="background:rgba(0,0,50,0.3); border:1px solid #9b59b6;">
+                    <h4 style="color:#9b59b6;">[-1]</h4>
+                    <p>Prends le dernier élément. Pas besoin de connaître la taille.</p>
+                </div>
+                <div class="feature-card" style="background:rgba(0,0,50,0.3); border:1px solid #e74c3c;">
+                    <h4 style="color:#e74c3c;">[::-1]</h4>
+                    <p>Inverse toute la liste. Le classique des entretiens.</p>
+                </div>
+            </div>
+
+            <pre><code class="lang-python">data = [0, 10, 20, 30, 40, 50]
+
+print(data[1:4])   # [10, 20, 30]
+print(data[::-1])  # [50, 40, 30, 20, 10, 0]
+print(data[::2])   # [0, 20, 40] (Un sur deux)</code></pre>
+
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
+
+            <h3>2. LES MÉTHODES UTILES</h3>
+            <ul style="margin-left:20px; color:#8ab095;">
+                <li style="margin-bottom:10px;"><code>.append(x)</code> : Ajoute à la fin.</li>
+                <li style="margin-bottom:10px;"><code>.pop()</code> : Retire et renvoie le dernier.</li>
+                <li style="margin-bottom:10px;"><code>len(liste)</code> : La taille.</li>
+                <li style="margin-bottom:10px;"><code>x in liste</code> : Vérifie si x est dedans (True/False).</li>
+            </ul>
             `,
             exercises: [
-                { instruction: "On a `nums = [10, 20, 30, 40, 50]`. Récupère les 3 derniers éléments.", baseCode: "nums = [10, 20, 30, 40, 50]\n# res = ..." },
-                { instruction: "Inverse la liste avec le slicing.", baseCode: "" },
-                { instruction: "Récupère un élément sur deux.", baseCode: "" }
+                {
+                    instruction: "Le Sniper : On a `cibles = ['A', 'B', 'C', 'D', 'E']`. Affiche une liste contenant seulement 'C' et 'D' en utilisant le slicing.",
+                    baseCode: "cibles = ['A', 'B', 'C', 'D', 'E']\n# tir = ...\nprint(tir)",
+                    solution: "cibles = ['A', 'B', 'C', 'D', 'E']\ntir = cibles[2:4] # Index 2 inclus, 4 exclu\nprint(tir)"
+                },
+                {
+                    instruction: "Miroir : Crée une liste avec les chiffres de 1 à 5. Affiche-la à l'envers.",
+                    baseCode: "",
+                    solution: "nums = [1, 2, 3, 4, 5]\nprint(nums[::-1])"
+                },
+                {
+                    instruction: "Filtre Rapide : On a `valeurs = [10, 5, 20, 3, 30]`. Ajoute '100' à la fin, puis retire le dernier élément (pop) et affiche-le.",
+                    baseCode: "valeurs = [10, 5, 20, 3, 30]\n# Code ici",
+                    solution: "valeurs.append(100)\nprint(valeurs.pop())"
+                }
             ]
         },
         {
-            id: 'py_classes', lang: 'python', title: "Classes & OOP",
+            id: 'py_dict', lang: 'python', title: "Dictionnaires (Le Casier Judiciaire)",
             content: `
-### Objets Python
-Tout est objet en Python. \`self\` représente l'instance actuelle.
+            <h3>LA MÉMOIRE INSTANTANÉE</h3>
+            <p>Une liste c'est bien, mais si tu cherches "Toto", tu dois parcourir toute la liste. C'est lent.</p>
+            <p>Le <strong>Dictionnaire</strong> (Hashmap), c'est l'accès direct. Tu donnes la CLÉ, tu as la VALEUR. Immédiatement.</p>
 
-\`\`\`python
-class Droid:
-    def __init__(self, name):
-        self.name = name
-        self.battery = 100
-    
-    def hack(self):
-        self.battery -= 10
-        return "Hack en cours..."
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
 
-r2 = Droid("R2D2")
-print(r2.hack())
-\`\`\`
+            <h3>1. STRUCTURE JSON-STYLE</h3>
+            <p>Ça ressemble à du JSON. C'est des paires <code>Clé : Valeur</code>.</p>
+
+            <pre><code class="lang-python">suspect = {
+    "nom": "Keyser Söze",
+    "flic": False,
+    "kills": 42,
+    "skills": ["Intimidation", "Manipulation"]
+}</code></pre>
+
+            <div class="features-grid" style="gap:20px; margin:20px 0;">
+                <div class="feature-card" style="background:rgba(0,50,50,0.3); border:1px solid #1abc9c;">
+                    <h4 style="color:#1abc9c;">ACCÈS (Lecture)</h4>
+                    <p><code>print(suspect["nom"])</code></p>
+                    <p>Renvoie "Keyser Söze".</p>
+                </div>
+                <div class="feature-card" style="background:rgba(50,50,0,0.3); border:1px solid #f39c12;">
+                    <h4 style="color:#f39c12;">MODIF (Écriture)</h4>
+                    <p><code>suspect["kills"] = 43</code></p>
+                    <p>Met à jour instantanément.</p>
+                </div>
+            </div>
+
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
+
+            <h3>2. ITERATION (La Fouille)</h3>
+            <p>Tu peux parcourir les clés et les valeurs ensemble comme un pro.</p>
+            <pre><code class="lang-python">for cle, valeur in suspect.items():
+    print(f"L'info {cle} vaut {valeur}")</code></pre>
             `,
             exercises: [
-                { instruction: "Crée une classe `Soldat` avec attribut `vie` = 100.", baseCode: "class Soldat:\n    pass" },
-                { instruction: "Ajoute une méthode `tirer()` qui print 'PAN'.", baseCode: "" },
-                { instruction: "Instancie le soldat et fais-le tirer.", baseCode: "" }
+                {
+                    instruction: "Fiche Policière : Crée un dico `profil` avec 'alias': 'The Boss', 'wanted': True. Affiche l'alias.",
+                    baseCode: "# Code ici",
+                    solution: "profil = {'alias': 'The Boss', 'wanted': True}\nprint(profil['alias'])"
+                },
+                {
+                    instruction: "Mise à Jour : Change la valeur de 'wanted' à False. Ajoute une nouvelle clé 'prime' avec la valeur 1000000.",
+                    baseCode: "profil = {'alias': 'The Boss', 'wanted': True}\n# Code ici\nprint(profil)",
+                    solution: "profil['wanted'] = False\nprofil['prime'] = 1000000\nprint(profil)"
+                },
+                {
+                    instruction: "L'Inventaire : Tu as `sac = {'pomme': 2, 'épée': 1}`. Utilise une boucle for pour afficher tout ce qu'il y a dans le sac.",
+                    baseCode: "sac = {'pomme': 2, 'épée': 1}\n# Boucle for...",
+                    solution: "for item, qte in sac.items():\n    print(f\"{item}: {qte}\")"
+                }
             ]
         },
         {
-            id: 'py_dict', lang: 'python', title: "Dictionnaires",
+            id: 'py_classes', lang: 'python', title: "Classes & OOP (L'Usine à Robots)",
             content: `
-### Hashmaps
-Accès instantané via clé. C'est la structure la plus optimisée.
+            <h3>LE PLAN vs LE ROBOT</h3>
+            <p>La Programmation Orientée Objet (OOP), c'est simple :</p>
+            <ul style="margin-left:20px; color:#ccc;">
+                <li>La <strong>CLASSE</strong> c'est le plan de construction (le blueprint). Il n'existe pas physiquement.</li>
+                <li>L'<strong>OBJET</strong> (ou Instance) c'est le robot construit d'après le plan. Tu peux en faire 1000 différents.</li>
+            </ul>
 
-\`\`\`python
-user = {
-    "id": 42,
-    "role": "admin",
-    "skills": ["python", "c"]
-}
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
 
-# Accès
-print(user["role"])
+            <h3>1. LE SELF (C'est "Moi")</h3>
+            <p>Dans une classe, le mot <code>self</code> désigne le robot actuel. Si R2D2 parle, <code>self</code> c'est R2D2. Si C3PO parle, <code>self</code> c'est C3PO.</p>
 
-# Itération
-for k, v in user.items():
-    print(f"{k}: {v}")
-\`\`\`
+            <pre><code class="lang-python">class Robot:
+    # Le Constructeur (La Naissance)
+    def __init__(self, nom_donne):
+        self.nom = nom_donne  # Je colle une étiquette sur MOI
+        self.batterie = 100   # Je commence à fond
+
+    def action(self):
+        self.batterie -= 10
+        return f"{self.nom} dit : Bip Boup. Batterie: {self.batterie}%"
+
+# Fabrication
+r1 = Robot("Terminator")
+r2 = Robot("Wall-E")
+
+print(r1.action()) # Terminator perd de la batterie
+print(r2.action()) # Wall-E aussi, mais c'est SES variables à LUI</code></pre>
+
+            <div class="feature-card" style="margin:20px 0; border:1px solid #3498db; background:rgba(0,0,50,0.3);">
+                 <h4 style="color:#3498db;">POURQUOI FAIRE ?</h4>
+                 <p>Pour organiser ton code. Au lieu d'avoir des variables <code>nom1</code>, <code>nom2</code>, <code>bat1</code>, <code>bat2</code> qui traînent partout, tout est rangé dans des objets.</p>
+            </div>
             `,
             exercises: [
-                { instruction: "Crée un dico `stock` avec 'pomme': 10.", baseCode: "stock = {}" },
-                { instruction: "Ajoute 'poire': 5.", baseCode: "" },
-                { instruction: "Modifie 'pomme' pour ajouter +2.", baseCode: "" }
+                {
+                    instruction: "L'Usine : Crée une classe `Voiture`. Dans le `__init__`, elle prend une `marque`. Elle a aussi une variable `vitesse` à 0.",
+                    baseCode: "class Voiture:\n    # Code ici\n    pass",
+                    solution: "class Voiture:\n    def __init__(self, marque):\n        self.marque = marque\n        self.vitesse = 0"
+                },
+                {
+                    instruction: "Accélération : Ajoute une méthode `accelerer()` qui augmente la vitesse de 10. Instancie une 'Ferrari' et fais-la accélérer 3 fois.",
+                    baseCode: "",
+                    solution: "class Voiture:\n    # ... (init) ...\n    def accelerer(self):\n        self.vitesse += 10\n\nf = Voiture('Ferrari')\nf.accelerer()\nf.accelerer()\nf.accelerer()"
+                },
+                {
+                    instruction: "La Course : Crée deux voitures. Affiche la marque de celle qui va le plus vite (modifie leur vitesse manuellement).",
+                    baseCode: "",
+                    solution: "v1 = Voiture('Peugeot')\nv2 = Voiture('Bugatti')\nv2.vitesse = 400\nif v2.vitesse > v1.vitesse: print(v2.marque)"
+                }
             ]
         },
 
         // --- JAVA (Enterprise/Strong Types) ---
         {
-            id: 'java_class', lang: 'java', title: "Classes & Objets",
+            id: 'java_class', lang: 'java', title: "Classes & Objets (L'Usine)",
             content: `
-### Le Monde Objet
-Java est strictement orienté objet. Tout code vit dans une classe.
-Le point d'entrée est \`public static void main\`.
+            <h3>BIENVENUE DANS LA CORPORATE LIFE</h3>
+            <p>Java, c'est pas le marché noir. C'est l'industrie lourde. Tout est carré, sécurisé, et vérifié trois fois.</p>
+            <p>Ici, une variable ne traîne pas dans la rue. Elle vit dans une <strong>CLASSE</strong>.</p>
 
-\`\`\`java
-public class Matrix {
-    private int stability;
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
 
-    public Matrix(int s) {
-        this.stability = s;
+            <h3>1. LE MOULE (La Classe)</h3>
+            <p>Une Classe, c'est un plan d'usine. Ça ne fait rien tant que tu ne lances pas la prod.</p>
+            <p>Un <strong>Objet</strong>, c'est le produit fini qui sort de l'usine.</p>
+
+            <div class="features-grid" style="gap:20px; margin:20px 0;">
+                <div class="feature-card" style="background:rgba(50,0,0,0.3); border:1px solid #e74c3c;">
+                    <h4 style="color:#e74c3c;">private (Secret Défense)</h4>
+                    <p>Personne ne touche. C'est les mécanismes internes de ta machine.</p>
+                </div>
+                <div class="feature-card" style="background:rgba(0,50,0,0.3); border:1px solid #2ecc71;">
+                    <h4 style="color:#2ecc71;">public (La Vitrine)</h4>
+                    <p>Tout le monde peut voir et utiliser. C'est les boutons de la machine.</p>
+                </div>
+            </div>
+
+            <pre><code class="lang-java">public class CoffreFort {
+    // Secret : Personne ne voit le code direct
+    private int codeSecret; 
+
+    // Constructeur : Lancé à la fabrication
+    public CoffreFort(int code) {
+        this.codeSecret = code;
     }
 
-    public void glitch() {
-        this.stability -= 10;
-        System.out.println("Glitch detected.");
+    // Méthode publique : Seule façon d'interagir
+    public boolean ouvrir(int tentative) {
+        return tentative == this.codeSecret;
     }
-}
-\`\`\`
+}</code></pre>
+
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
+
+            <h3>2. L'ENCAPSULATION (La Sécurité)</h3>
+            <p>En Java, on ne laisse pas les variables à l'air libre. On met des <strong>Getters</strong> (pour voir) et des <strong>Setters</strong> (pour modifier avec contrôle).</p>
+            <p><em>Règle d'or :</em> Tes données sont privées. Tes méthodes sont publiques.</p>
             `,
             exercises: [
-                { instruction: "Crée une classe `Box`.", baseCode: "class Box {\n}" },
-                { instruction: "Ajoute un attribut privé `items` (int).", baseCode: "" },
-                { instruction: "Ajoute un getter `getItems()`.", baseCode: "" }
+                {
+                    instruction: "L'Usine : Crée une classe `CompteBancaire` avec un solde `private double solde`.",
+                    baseCode: "public class CompteBancaire {\n    // Code ici\n}",
+                    solution: "public class CompteBancaire {\n    private double solde;\n}"
+                },
+                {
+                    instruction: "Le Guichet : Ajoute une méthode `public void depot(double montant)` qui ajoute l'argent au solde.",
+                    baseCode: "",
+                    solution: "public void depot(double m) {\n    this.solde += m;\n}"
+                },
+                {
+                    instruction: "Le Client : Dans le `main`, crée un compte, dépose 100€, et essaie (si tu as fait un getter) d'afficher le solde.",
+                    baseCode: "",
+                    solution: "public static void main(String[] args) {\n    CompteBancaire c = new CompteBancaire();\n    c.depot(100);\n    // System.out.println(c.solde); // ERREUR (Private)\n}"
+                }
             ]
         },
         {
-            id: 'java_inherit', lang: 'java', title: "Héritage",
+            id: 'java_inherit', lang: 'java', title: "Héritage (La Dynastie)",
             content: `
-### Ne pas se répéter (DRY)
-Une classe peut hériter d'une autre (\`extends\`).
+            <h3>RESPECTE LA HIÉRARCHIE</h3>
+            <p>Pourquoi réécrire le code ? Si le père a déjà bâti l'empire, le fils hérite de tout.</p>
+            <p>C'est ça l'héritage : <code>extends</code>. Tu prends tout ce qu'a fait la classe parente, et tu ajoutes tes trucs en plus.</p>
 
-\`\`\`java
-class Enemy {
-    void attack() { System.out.println("Bam"); }
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
+
+            <h3>1. EXTENDS (L'Héritier)</h3>
+            <p>Quand <code>Boss extends Enemy</code>, le Boss sait déjà tout faire ce que l'Enemy fait (attaquer, mourir...).</p>
+
+            <pre><code class="lang-java">class Employe {
+    void bosser() { System.out.println("Je tape au clavier..."); }
 }
 
-class Boss extends Enemy {
+// Le Manager sait bosser, MAIS il sait aussi virer les gens
+class Manager extends Employe {
+    void virer() { System.out.println("T'es viré."); }
+}</code></pre>
+
+            <h3>2. OVERRIDE (La Rébellion)</h3>
+            <p>Parfois, le fils veut faire différemment du père. On utilise <code>@Override</code>.</p>
+
+            <pre><code class="lang-java">class Stagiaire extends Employe {
     @Override
-    void attack() { 
-        System.out.println("BOOOOM (Gros dégâts)"); 
+    void bosser() {
+        System.out.println("Je fais le café..."); // Il change le comportement
     }
-}
+}</code></pre>
 
-Enemy e = new Boss();
-e.attack(); // Affiche BOOOOM
-\`\`\`
+            <div class="feature-card" style="margin:20px 0; border:1px solid #f1c40f; background:rgba(50,50,0,0.3);">
+                 <h4 style="color:#f1c40f;">LE POLYMORPHISME (Le Caméléon)</h4>
+                 <p>C'est magique : Un <code>Manager</code> EST un <code>Employe</code>. Tu peux le ranger dans une boîte "Employe", mais quand tu lui dis "bosse", il bossera comme un Manager.</p>
+            </div>
             `,
             exercises: [
-                { instruction: "Crée une classe `Animal`.", baseCode: "class Animal {}" },
-                { instruction: "Crée `Chat` qui extends `Animal`.", baseCode: "" },
-                { instruction: "Override une méthode `cri()` pour dire 'Miaou'.", baseCode: "" }
+                {
+                    instruction: "La Famille : Crée une classe `Vehicule` avec une méthode `bouger()` qui affiche 'Vroum'.",
+                    baseCode: "class Vehicule {}",
+                    solution: "class Vehicule {\n    void bouger() { System.out.println(\"Vroum\"); }\n}"
+                },
+                {
+                    instruction: "L'Enfant : Crée une classe `Avion` qui extends `Vehicule`. Surcharge `bouger()` pour afficher 'Fioouuuu'.",
+                    baseCode: "",
+                    solution: "class Avion extends Vehicule {\n    @Override\n    void bouger() { System.out.println(\"Fioouuuu\"); }\n}"
+                },
+                {
+                    instruction: "Le Test : Crée un `Avion`, mais stocke-le dans une variable de type `Vehicule`. Appelle `bouger()`. Que se passe-t-il ?",
+                    baseCode: "Vehicule v = new Avion();\n// ...",
+                    solution: "Vehicule v = new Avion();\nv.bouger(); // Affiche 'Fioouuuu' (Polymorphisme)"
+                }
             ]
         },
         {
-            id: 'java_streams', lang: 'java', title: "Streams",
+            id: 'java_streams', lang: 'java', title: "Streams (La Chaîne de Prod)",
             content: `
-### Manipulation Moderne
-Depuis Java 8, on utilise les Streams pour filtrer/mapper des collections comme un pro.
+            <h3>L'INDUSTRIE 4.0</h3>
+            <p>Avant Java 8, traiter des listes c'était l'enfer (boucles for, if, variables temporaires...).</p>
+            <p>Maintenant, on a les <strong>STREAMS</strong>. C'est une chaîne de production automatisée.</p>
+            
+            <p style="text-align:center; font-weight:bold; color:#3498db;">SOURCE -> FILTRE -> TRANSFORMATION -> EMBALLAGE</p>
 
-\`\`\`java
-List<String> names = Arrays.asList("Neo", "Morpheus", "Trinity");
+            <div class="laser-separator-container"><div class="laser-line"></div></div>
 
-// Filtrer et afficher
-names.stream()
-    .filter(n -> n.startsWith("N"))
-    .map(String::toUpperCase)
-    .forEach(System.out::println);
-\`\`\`
+            <h3>1. LE PIPELINE</h3>
+            <p>Tu branches les tuyaux et tu regardes les données couler.</p>
+
+            <ul style="margin-left:20px; color:#8ab095;">
+                <li style="margin-bottom:10px;"><code>.stream()</code> : Ouvre la vanne.</li>
+                <li style="margin-bottom:10px;"><code>.filter(x -> condition)</code> : Le tri sélectif (Garde ce qui est True).</li>
+                <li style="margin-bottom:10px;"><code>.map(x -> y)</code> : L'usine de transformation (Transforme x en y).</li>
+                <li style="margin-bottom:10px;"><code>.collect(...)</code> : La mise en carton finale.</li>
+            </ul>
+
+            <pre><code class="lang-java">List<String> produits = Arrays.asList("Iphone", "Samsung", "Ipad", "Nokia");
+
+// Je veux juste les produits Apple (Commence par 'I') en MAJUSCULES
+produits.stream()
+    .filter(p -> p.startsWith("I"))   // Garde Iphone, Ipad
+    .map(p -> p.toUpperCase())        // IPHONE, IPAD
+    .forEach(System.out::println);    // Affiche</code></pre>
+
+            <div class="feature-card" style="margin:20px 0; border:1px solid #3498db; background:rgba(0,0,50,0.3);">
+                 <h4 style="color:#3498db;">LAMBDA (La Flèche ->)</h4>
+                 <p><code>p -> p.toUpperCase()</code> c'est une mini-fonction anonyme. "Pour chaque p, donne-moi le p majuscule". Rapide. Efficace.</p>
+            </div>
             `,
             exercises: [
-                { instruction: "Crée une liste d'entiers 1, 2, 3, 4.", baseCode: "List<Integer> l =" },
-                { instruction: "Filtre pour garder les pairs (x % 2 == 0).", baseCode: "" },
-                { instruction: "Affiche le résultat.", baseCode: "" }
+                {
+                    instruction: "L'Inventaire : Crée une liste d'entiers : 10, 5, 20, 3, 100.",
+                    baseCode: "List<Integer> prix = Arrays.asList(10, 5, 20, 3, 100);",
+                    solution: "List<Integer> prix = Arrays.asList(10, 5, 20, 3, 100);"
+                },
+                {
+                    instruction: "Le Tri : Utilise un stream pour garder uniquement les prix supérieurs à 10.",
+                    baseCode: "",
+                    solution: "prix.stream().filter(p -> p > 10).forEach(System.out::println);"
+                },
+                {
+                    instruction: "La Solde : Applique une réduction de 50% sur le reste (.map) et affiche tout.",
+                    baseCode: "",
+                    solution: "prix.stream()\n    .filter(p -> p > 10)\n    .map(p -> p / 2)\n    .forEach(System.out::println);"
+                }
             ]
         },
 
-        // --- PHP (Web Backend) ---
-        {
-            id: 'php_basics', lang: 'php', title: "Le Sale (Base)",
-            content: `
-### Le Dinosaure du Web
-PHP propulse 80% du web. C'est sale mais ça marche.
-Variables commencent par \`$\`. Tableaux associatifs (le coeur de PHP).
 
-\`\`\`php
-$nom = "Jean";
-$data = [
-    "user_id" => 12,
-    "status" => "active"
-];
-
-echo "Salut " . $nom;
-\`\`\`
-            `,
-            exercises: [
-                { instruction: "Crée un tableau `$user` avec 'login' => 'admin'.", baseCode: "<?php\n\n// Code ici" },
-                { instruction: "Affiche le login.", baseCode: "" },
-                { instruction: "Change le login en 'root'.", baseCode: "" }
-            ]
-        },
-        {
-            id: 'php_pdo', lang: 'php', title: "PDO (Database)",
-            content: `
-### Parler à la DB
-On utilise PDO (PHP Data Objects) pour éviter les injections SQL. JAMAIS de concaténation dans les requêtes.
-
-\`\`\`php
-$pdo = new PDO('mysql:host=localhost;dbname=test', 'root', '');
-$stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
-$stmt->execute([$email]);
-$user = $stmt->fetch();
-\`\`\`
-            `,
-            exercises: [
-                { instruction: "Crée une instance PDO vers sqlite::memory:", baseCode: "<?php\n//" },
-                { instruction: "Prépare un INSERT dans 'logs'.", baseCode: "" },
-                { instruction: "Exécute avec un message sécurisé.", baseCode: "" }
-            ]
-        },
-        {
-            id: 'php_forms', lang: 'php', title: "Superglobales",
-            content: `
-### Recevoir de la data
-PHP est né pour ça. \`$_GET\` et \`$_POST\` contiennent les données envoyées par le navigateur.
-
-\`\`\`php
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = htmlspecialchars($_POST['email']); // Sécurité XSS
-    // Traitement...
-}
-\`\`\`
-            `,
-            exercises: [
-                { instruction: "Check si la méthode est POST.", baseCode: "<?php\n" },
-                { instruction: "Récupère `$_POST['user']`.", baseCode: "" },
-                { instruction: "Affiche-le avec htmlspecialchars.", baseCode: "" }
-            ]
-        }
     ];
 
-    // MOCK DATA: STANDARD QUIZZES
+    // ROBUST DATABASE: HARDCODED QUESTIONS (FALLBACK OR PRIMARY)
     const QUIZ_DB = {
         'c': [
-            { q: "En C, quelle est la taille de 'char' ?", opts: ["1 octet", "2 octets", "4 octets", "Ca dépend du climat"], a: 0 },
-            { q: "Que signifie 'malloc' ?", opts: ["Memory Allocation", "Make ALL O-Complexity", "My Allocation", "Rien"], a: 0 }
+            // BASICS
+            { q: "En C, comment déclare-t-on un pointeur ?", opts: ["int *ptr;", "int &ptr;", "pointer int;", "ptr -> int;"], a: 0, explanation: "L'étoile (*) désigne le pointeur. Le '&' c'est pour l'adresse." },
+            { q: "Quelle est la taille d'un 'int' sur une architecture moderne standard ?", opts: ["2 octets", "4 octets", "8 octets", "Ça dépend de la météo"], a: 1, explanation: "Généralement 4 octets (32 bits), mais ça peut varier selon le CPU." },
+            { q: "Que fait 'malloc(100)' ?", opts: ["Alloue 100 entiers", "Alloue 100 octets", "Libère 100 octets", "Plante le PC"], a: 1, explanation: "Malloc prend une taille en OCTETS. Pas en éléments." },
+            { q: "Si t'oublies le ';', il se passe quoi ?", opts: ["Rien, le compilateur est sympa", "Le PC explose", "Erreur de compilation", "Warning uniquement"], a: 2, explanation: "En C, le point-virgule est non-négociable. C'est pas du Python ici." },
+            { q: "Quel format pour afficher un entier décimal avec printf ?", opts: ["%f", "%s", "%d", "%x"], a: 2, explanation: "%d pour Decimal (ou %i)." },
+
+            // POINTERS & ARRAYS
+            { q: "int t[3] = {1, 2, 3}; Que vaut t[3] ?", opts: ["3", "0", "N'importe quoi (Undefined)", "Erreur Ségmentation"], a: 2, explanation: "C'est un débordement (Buffer Overflow). Les indices vont de 0 à 2. t[3] est hors limite." },
+            { q: "Laquelle de ces boucles est infinie ?", opts: ["for(int i=0; i<10; i++)", "while(1)", "do {} while(0)", "if(1)"], a: 1, explanation: "while(1) est la boucle infinie canonique en C." },
+            { q: "Comment libérer la mémoire allouée par malloc ?", opts: ["delete", "remove", "free", "oubli"], a: 2, explanation: "free() est la seule façon de rendre la RAM." },
+            { q: "C'est quoi un 'SegFault' (Segmentation Fault) ?", opts: ["Un bug graphique", "Accès mémoire interdit", "Disque dur plein", "Erreur réseau"], a: 1, explanation: "Tu as essayé de toucher à une case mémoire qui ne t'appartient pas." },
+            { q: "Quelle bibliothèque pour utiliser printf ?", opts: ["stdio.h", "stdlib.h", "string.h", "math.h"], a: 0, explanation: "Standard Input Output (stdio)." },
+
+            // ADVANCED/FUN
+            { q: "void *ptr; C'est quoi ?", opts: ["Un pointeur nul", "Un pointeur générique (sans type)", "Une erreur", "Un pointeur vers le vide"], a: 1, explanation: "C'est un pointeur universel. Il peut pointer vers n'importe quoi, mais faut le caster pour l'utiliser." },
+            { q: "Que renvoie strcmp('a', 'a') ?", opts: ["1", "0", "-1", "True"], a: 1, explanation: "0 signifie 'aucune différence'. C'est contre-intuitif mais c'est comme ça." },
+            { q: "Le C est un langage...", opts: ["Interprété", "Compilé", "JIT", "Scripté"], a: 1, explanation: "Tu écris, tu compiles (gcc), tu exécutes." },
+            { q: "NULL, ça vaut combien en général ?", opts: ["0", "1", "-1", "NaN"], a: 0, explanation: "C'est juste un zéro déguisé en pointeur." },
+            { q: "Dans 'char *s = \"Salut\";', où est stocké \"Salut\" ?", opts: ["Stack", "Heap", "Zone lecture seule (RO)", "Sur le disque"], a: 2, explanation: "C'est une littorale de chaîne. Si tu essaies de la modifier (s[0]='X'), ça crashe." },
+
+            // CODE SNIPPETS
+            { q: "int i=0; printf(\"%d\", i++); Affiche quoi ?", opts: ["0", "1", "Erreur", "Rien"], a: 0, explanation: "Post-incrément : on utilise la valeur (0) PUIS on incrémente." },
+            { q: "int i=0; printf(\"%d\", ++i); Affiche quoi ?", opts: ["0", "1", "Erreur", "Rien"], a: 1, explanation: "Pré-incrément : on incrémente d'abord, PUIS on utilise." },
+            { q: "char t[]=\"AB\"; printf(\"%d\", sizeof(t));", opts: ["2", "3", "4", "8"], a: 1, explanation: "A, B et \\0 (le fin de chaîne caché). Total = 3 octets." },
+            { q: "if(a = 5) { printf(\"X\"); } else { printf(\"Y\"); }", opts: ["Affiche X", "Affiche Y", "Erreur Compil", "Crash"], a: 0, explanation: "Piège classique ! '=' est une affectation, pas une comparaison '=='. 5 est vrai, donc X." },
+            { q: "#define CARRE(x) x*x \n printf(\"%d\", CARRE(2+2));", opts: ["16", "8", "6", "4"], a: 2, explanation: "Attention aux macros ! Ça fait 2+2*2+2 = 2+4+2 = 8. Il fallait des parenthèses." }
         ],
-        'javascript': [
-            { q: "[] + [] = ?", opts: ["[]", "0", "undefined", "\"\" (String vide)"], a: 3 },
-            { q: "NaN === NaN", opts: ["Vrai", "Faux", "Peut-être", "Kamoulox"], a: 1 }
-        ],
+
         'python': [
-            { q: "Comment tu fais une boucle ?", opts: ["for i in range(x)", "loop(x)", "foreach i", "tourne()"], a: 0 },
-            { q: "Python est ?", opts: ["Compilé", "Interprété", "Cuit à la vapeur", "Un serpent"], a: 1 }
+            { q: "Comment afficher 'Bonjour' ?", opts: ["echo 'Bonjour'", "printf('Bonjour')", "print('Bonjour')", "log('Bonjour')"], a: 2, explanation: "Simple. Basique." },
+            { q: "Quelle structure utilise des paires Clé:Valeur ?", opts: ["Liste", "Tuple", "Dictionnaire", "Set"], a: 2, explanation: "Le dico (hashtable). {'clé': 'valeur'}." },
+            { q: "Le dernier élément de liste L ?", opts: ["L[size]", "L[-1]", "L.last()", "L[end]"], a: 1, explanation: "L'index négatif -1 part de la fin." },
+            { q: "Python est...", opts: ["Typé statiquement", "Typé dynamiquement", "Pas typé", "Typé par le Saint-Esprit"], a: 1, explanation: "Les types sont déterminés à l'exécution." },
+            { q: "Pour définir une fonction ?", opts: ["func maFonction()", "function maFonction()", "def maFonction():", "void maFonction()"], a: 2, explanation: "def pour définition." },
+
+            { q: "len([1,2,3]) renvoie ?", opts: ["2", "3", "4", "Error"], a: 1, explanation: "La longueur est 3." },
+            { q: "Comment ajouter 'X' à la liste L ?", opts: ["L.add('X')", "L.push('X')", "L.append('X')", "L += 'X'"], a: 2, explanation: ".append() est la méthode standard." },
+            { q: "Range(3) génère ?", opts: ["1, 2, 3", "0, 1, 2", "1, 2", "0, 1, 2, 3"], a: 1, explanation: "Ça part de 0 et ça s'arrête AVANT 3." },
+            { q: "Les chaînes (str) sont...", opts: ["Modifiables (Mutable)", "Immuables (Immutable)", "Volatiles", "Liquides"], a: 1, explanation: "Tu ne peux pas changer un caractère d'une string existante. Faut en créer une nouvelle." },
+            { q: "Quel mot-clé pour importer une lib ?", opts: ["include", "using", "import", "require"], a: 2, explanation: "import math, import random..." },
+
+            { q: "C'est quoi un tuple ?", opts: ["Une liste immuable", "Une liste rapide", "Une erreur", "Un dictionnaire"], a: 0, explanation: "(1, 2) est un tuple. Tu ne peux pas le modifier après création." },
+            { q: "Qui est le créateur de Python ?", opts: ["Guido van Rossum", "Linus Torvalds", "Bill Gates", "Le serpent Kaa"], a: 0, explanation: "Notre bienveillant dictateur à vie (BDFL)." },
+            { q: "__init__ c'est quoi ?", opts: ["Une variable", "Le constructeur de classe", "Un module", "Une erreur"], a: 1, explanation: "La méthode lancée à la création d'un objet." },
+            { q: "True + True ça fait ?", opts: ["True", "2", "Error", "False"], a: 1, explanation: "En Python, les booléens sont des sous-entiers. 1 + 1 = 2." },
+            { q: "Pour commenter une ligne ?", opts: ["//", "/* */", "#", "--"], a: 2, explanation: "Le dièse #." },
+
+            // CODE SNIPPETS
+            { q: "L = [1, 2, 3]; L[10] = 5;", opts: ["L devient [1,2,3, ..., 5]", "L ne change pas", "IndexError", "L devient [5,2,3]"], a: 2, explanation: "Tu ne peux pas assigner un index qui n'existe pas. Faut utiliser .append()." },
+            { q: "def f(x=[]): ...; C'est dangereux pourquoi ?", opts: ["Performance", "x est partagé entre les appels", "Crash système", "Syntax Error"], a: 1, explanation: "L'argument par défaut est créé UNE seule fois. Si tu modifies x, ça reste modifié pour le prochain appel." },
+            { q: "print('A' * 3)", opts: ["AAA", "A3", "Error", "['A', 'A', 'A']"], a: 0, explanation: "Python permet de multiplier les chaînes. Pratique." },
+            { q: "x = lambda a : a + 10; print(x(5))", opts: ["15", "5", "10", "Error"], a: 0, explanation: "Lambda est une fonction anonyme. 5 + 10 = 15." },
+            { q: "[i for i in range(3)] donne ?", opts: ["[0, 1, 2]", "[1, 2, 3]", "(0, 1, 2)", "0 1 2"], a: 0, explanation: "C'est une List Comprehension. Très pythonique." }
+        ],
+
+        'java': [
+            { q: "Point d'entrée d'un programme Java ?", opts: ["start()", "main()", "public static void main(String[] args)", "init()"], a: 2, explanation: "Faut la totale. Java ne rigole pas avec la signature." },
+            { q: "Héritage : quel mot clé ?", opts: ["inherits", "extends", "implements", "super"], a: 1, explanation: "extends pour les classes, implements pour les interfaces." },
+            { q: "int x = 5 / 2; Ça vaut ?", opts: ["2.5", "2", "3", "Erreur"], a: 1, explanation: "Division entière ! Les décimales passent à la trappe." },
+            { q: "ArrayList vs Array ?", opts: ["Pareil", "ArrayList est redimensionnable", "Array est plus lent", "ArrayList n'existe pas"], a: 1, explanation: "L'array a une taille fixe. L'ArrayList grandit toute seule." },
+            { q: "Le 'Garbage Collector' sert à...", opts: ["Ramasser les poubelles (Mémoire)", "Trier les fichiers", "Compter les points", "Nettoyer l'écran"], a: 0, explanation: "Il libère la RAM des objets orphelins automatiquement." },
+
+            { q: "String s = 'A'; String t = 'A'; s == t ?", opts: ["Toujours Vrai", "Toujours Faux", "Ça dépend (Pool de String)", "Erreur"], a: 2, explanation: "Attention ! == compare les adresses mémoire. Utilise .equals() pour comparer le contenu." },
+            { q: "private signifie...", opts: ["Visible par tout le monde", "Visible que dans la classe", "Visible par les héritiers", "Secret d'état"], a: 1, explanation: "Accès restreint à l'intérieur de la classe uniquement." },
+            { q: "Comment convertir String '123' en int ?", opts: ["(int)'123'", "Integer.parseInt('123')", "Int('123')", "Cast('123')"], a: 1, explanation: "La classe Integer a des méthodes statiques pour ça." },
+            { q: "Une Interface peut avoir des variables ?", opts: ["Oui", "Non", "Seulement des constantes (static final)", "Seulement private"], a: 2, explanation: "En Java, les variables d'interface sont forcément des constantes publiques." },
+            { q: "NullPointerException, c'est quoi ?", opts: ["Une variable vaut null et tu l'utilises", "Un pointeur fou", "Une erreur système", "Un virus"], a: 0, explanation: "L'erreur la plus classique. T'essaies d'appeler une méthode sur un fantôme." },
+
+            { q: "Le mot clé 'final' sur une variable ?", opts: ["Elle va mourir", "Elle est constante (immuable)", "C'est la dernière", "C'est privé"], a: 1, explanation: "On ne peut l'assigner qu'une seule fois." },
+            { q: "Override signifie...", opts: ["Surcharger", "Écraser/Redéfinir", "Supprimer", "Ignorer"], a: 1, explanation: "On remplace la méthode du parent par la nôtre." },
+            { q: "System.out.println() imprime où ?", opts: ["Imprimante", "Console (Sortie Standard)", "Fichier log", "Écran bleu"], a: 1, explanation: "Dans la console standard (stdout)." },
+            { q: "Un 'boolean' peut valoir null ?", opts: ["Oui", "Non (C'est un type primitif)", "Seulement Boolean (Objet)", "Peut-être"], a: 1, explanation: "Le type primitif boolean est true ou false. Le wrapper Boolean peut être null." },
+            { q: "Java est compilé en...", opts: ["Code Machine", "Bytecode", "Python", "Assembleur"], a: 1, explanation: "Bytecode, qui tourne ensuite dans la JVM." },
+
+            // CODE SNIPPETS
+            { q: "try { return 1; } finally { return 2; }", opts: ["Renvoie 1", "Renvoie 2", "Erreur Compil", "Renvoie 3"], a: 1, explanation: "Le bloc 'finally' gagne TOUJOURS. Il écrase le return du try." },
+            { q: "String s = \"Java\"; s.concat(\"Script\"); System.out.println(s);", opts: ["JavaScript", "Java", "Script", "Erreur"], a: 1, explanation: "Les Strings sont IMMUABLES. s.concat() renvoie une NOUVELLE string mais ne modifie pas 's'." },
+            { q: "int[] a = {1, 2}; int[] b = a; b[0] = 99; Que vaut a[0] ?", opts: ["1", "99", "2", "Erreur"], a: 1, explanation: "Les tableaux sont des OBJETS. a et b pointent vers le MÊME tableau en mémoire." },
+            { q: "System.out.println(1 + 2 + \"A\");", opts: ["3A", "12A", "12", "Erreur"], a: 0, explanation: "De gauche à droite : 1+2 = 3, puis 3 + \"A\" = \"3A\"." },
+            { q: "System.out.println(\"A\" + 1 + 2);", opts: ["A3", "A12", "Error", "12A"], a: 1, explanation: "De gauche à droite : \"A\" + 1 = \"A1\", puis \"A1\" + 2 = \"A12\". Concaténation l'emporte." }
         ]
     };
 
-    // 2. NAVIGATION HELPER
+    // 2. NAVIGATION HELPER & HISTORY ENGINE
+
+    // Fix: Ensure History logic exists and is user-scoped
+    function addToHistory(type, title) {
+        if (!currentUser) return;
+        if (!currentUser.data) currentUser.data = {};
+        if (!currentUser.data.history) currentUser.data.history = [];
+
+        // Add new (Limit 5)
+        currentUser.data.history.unshift({ type, title, date: new Date().toISOString() });
+        if (currentUser.data.history.length > 5) currentUser.data.history.pop();
+
+        // Sync
+        if (typeof syncData === 'function') syncData('history', currentUser.data.history);
+    }
+
+    function renderHistory() {
+        if (!currentUser) return;
+        const hQ = document.getElementById('hist-quiz');
+        const hC = document.getElementById('hist-cours');
+        if (hQ) hQ.innerHTML = '';
+        if (hC) hC.innerHTML = '';
+
+        if (!currentUser.data) return;
+
+        // CRITICAL FIX: Ensure history is an ARRAY. 
+        if (!Array.isArray(currentUser.data.history)) {
+            console.warn("History format mismatch (Expected Array). Resetting or migrating.");
+            // Reset to empty array to prevent crash
+            currentUser.data.history = [];
+            syncData('history', currentUser.data.history);
+        }
+
+        if (currentUser.data.history.length === 0) {
+            if (hQ) hQ.innerHTML = '<em style="color:#666;">Rien à signaler.</em>';
+            if (hC) hC.innerHTML = '<em style="color:#666;">Rien à signaler.</em>';
+            return;
+        }
+
+        currentUser.data.history.forEach(h => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.style.marginBottom = '8px';
+            div.style.fontSize = '0.85rem';
+            div.style.borderBottom = '1px dashed #333';
+            div.style.paddingBottom = '4px';
+            div.style.display = 'flex';
+            div.style.alignItems = 'center';
+            div.style.gap = '10px';
+
+            let icon = h.type === 'quizzes' ? '<i class="fas fa-fist-raised" style="color:#e74c3c;"></i>' : '<i class="fas fa-book" style="color:#3498db;"></i>';
+            div.innerHTML = `${icon} <span style="color:#ccc;">${h.title}</span>`;
+
+            if (h.type === 'quizzes' && hQ) hQ.appendChild(div);
+            if (h.type === 'courses' && hC) hC.appendChild(div);
+        });
+    }
+
     function openMuscuView(viewId) {
         MUSCU_VIEWS.forEach(id => {
             const el = document.getElementById(id);
@@ -1474,7 +2228,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             setTimeout(() => target.classList.add('active'), 50);
 
             // Render History if landing
-            if (viewId === 'muscu-menu') renderHistory();
+            if (viewId === 'muscu-menu') {
+                if (currentUser) {
+                    renderHistory();
+                } else {
+                    // Clear if guest
+                    const hQ = document.getElementById('hist-quiz');
+                    const hC = document.getElementById('hist-cours');
+                    if (hQ) hQ.innerHTML = '<em style="color:#444;">Connexion requise pour l\'historique.</em>';
+                    if (hC) hC.innerHTML = '<em style="color:#444;">Connexion requise pour l\'historique.</em>';
+                }
+            }
         }
     }
 
@@ -1560,58 +2324,168 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             row.querySelectorAll('.btn-option').forEach(b => b.classList.remove('active'));
             e.target.classList.add('active');
 
-            // Show warning for AI
-            if (e.target.dataset.type === 'ai') {
-                const warningMsg = document.getElementById('ai-quiz-warning');
+            const type = e.target.dataset.type;
+            const paramsStd = document.getElementById('quiz-params-std');
+            const paramsAi = document.getElementById('quiz-params-ai');
+            const warningMsg = document.getElementById('ai-quiz-warning');
+            const btnStart = document.getElementById('btn-start-quiz');
+
+            // Reset Warning
+            if (warningMsg) warningMsg.style.display = 'none';
+
+            if (type === 'ai') {
+                // HIDE STD, SHOW AI
+                if (paramsStd) paramsStd.style.display = 'none';
+                if (paramsAi) paramsAi.style.display = 'block';
 
                 if (!currentUser) {
                     // Not connected: BLOCKING WARNING
                     if (warningMsg) {
                         warningMsg.style.display = 'block';
                         warningMsg.innerHTML = '<i class="fas fa-times-circle"></i> STOP ! Connexion requise pour l\'IA.';
-                        warningMsg.style.color = '#e74c3c'; // Red
-                        warningMsg.style.borderColor = '#e74c3c';
+                        warningMsg.style.color = '#e74c3c';
                     }
+                    if (btnStart) {
+                        btnStart.disabled = true;
+                        btnStart.style.opacity = "0.5";
+                        btnStart.style.cursor = "not-allowed"; // Visual cue
+                    }
+
+                    // Clear selector to be sure
+                    const convSelector = document.getElementById('quiz-conv-selector');
+                    if (convSelector) convSelector.innerHTML = '<div style="color:#666; text-align:center; padding:10px;">(Données inaccessibles)</div>';
+
                 } else {
-                    // Connected: INFO WARNING
-                    if (warningMsg) {
-                        warningMsg.style.display = 'block';
-                        warningMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Nécessite d\'être connecté pour analyser ton historique.';
-                        warningMsg.style.color = '#f0ad4e'; // Original Orange
-                        warningMsg.style.borderColor = 'transparent'; // Reset border if any
+                    // Connected: NO WARNING, JUST RENDER SELECTOR
+                    if (btnStart) {
+                        btnStart.disabled = false; // Will be re-evaluated by selector update
+                        btnStart.style.opacity = "1";
+                        btnStart.style.cursor = "pointer";
                     }
+                    renderQuizConversationSelector();
                 }
             } else {
-                document.getElementById('ai-quiz-warning').style.display = 'none';
+                // SHOW STD, HIDE AI
+                if (paramsStd) paramsStd.style.display = 'block';
+                if (paramsAi) paramsAi.style.display = 'none';
+
+                // Re-enable start
+                if (btnStart) btnStart.disabled = false;
+                if (btnStart) btnStart.style.opacity = "1";
             }
         });
     });
 
-    document.getElementById('btn-start-quiz')?.addEventListener('click', async () => {
-        const type = document.querySelector('#muscu-quiz-setup .btn-option.active')?.dataset.type;
+    function renderQuizConversationSelector() {
+        const container = document.getElementById('quiz-conv-selector');
+        const countSpan = document.getElementById('selected-conv-count');
+        if (!container) return;
 
-        // NEW: Block start if AI selected and not connected
-        if (type === 'ai' && !currentUser) {
-            const warningMsg = document.getElementById('ai-quiz-warning');
-            if (warningMsg) {
-                // Shake effect or just highlight
-                warningMsg.style.animation = 'none';
-                warningMsg.offsetHeight; /* trigger reflow */
-                warningMsg.style.animation = 'shake 0.5s';
-            }
+        container.innerHTML = '';
+        if (countSpan) countSpan.textContent = '0';
+
+        if (!currentUser || !currentUser.data.conversations || currentUser.data.conversations.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding:20px; color:#e74c3c;">
+                    <i class="fas fa-search-minus" style="font-size:2rem; margin-bottom:10px;"></i><br>
+                    Aucune conversation trouvée.<br>
+                    <span style="font-size:0.8rem; color:#888;">Va discuter dans le Bureau du Chef d'abord.</span>
+                </div>`;
+            // Disable start
+            const btnStart = document.getElementById('btn-start-quiz');
+            if (btnStart) { btnStart.disabled = true; btnStart.style.opacity = "0.5"; }
             return;
         }
 
-        const lang = document.getElementById('quiz-lang-select').value;
-        const themeId = document.getElementById('quiz-theme-select').value;
-        const diff = document.getElementById('quiz-diff-select').value;
-        const length = parseInt(document.getElementById('quiz-length-select').value);
+        // Render List
+        currentUser.data.conversations.forEach(conv => {
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            row.style.padding = '8px';
+            row.style.borderBottom = '1px solid #333';
+            row.style.cursor = 'pointer';
+            row.style.transition = 'background 0.2s';
 
-        startQuiz(type, lang, themeId, diff, length);
+            // Hover effect logic handled by CSS usually, but inline for now
+            row.onmouseover = () => row.style.background = 'rgba(255,255,255,0.05)';
+            row.onmouseout = () => row.style.background = 'transparent';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'matrix-checkbox';
+            checkbox.value = conv.id;
+            checkbox.style.marginRight = '10px';
+
+            // Click on row toggles checkbox
+            row.addEventListener('click', (e) => {
+                if (e.target !== checkbox) checkbox.checked = !checkbox.checked;
+                updateSelectedCount();
+            });
+            checkbox.addEventListener('change', updateSelectedCount);
+
+            const info = document.createElement('div');
+            info.innerHTML = `
+                <div style="color:#e0fff0; font-weight:bold; font-size:0.9rem;">${conv.title || 'Sans titre'}</div>
+                <div style="color:#666; font-size:0.75rem;">${new Date(conv.date).toLocaleDateString()} - ${conv.messages.length} msgs</div>
+            `;
+
+            row.appendChild(checkbox);
+            row.appendChild(info);
+            container.appendChild(row);
+        });
+    }
+
+    function updateSelectedCount() {
+        const checkboxes = document.querySelectorAll('#quiz-conv-selector input[type="checkbox"]:checked');
+        const countSpan = document.getElementById('selected-conv-count');
+        const btnStart = document.getElementById('btn-start-quiz');
+
+        if (countSpan) countSpan.textContent = checkboxes.length;
+
+        // Disable start if 0 selected
+        if (btnStart) {
+            if (checkboxes.length === 0) {
+                btnStart.disabled = true;
+                btnStart.style.opacity = "0.5";
+            } else {
+                btnStart.disabled = false;
+                btnStart.style.opacity = "1";
+            }
+        }
+    }
+
+    document.getElementById('btn-start-quiz')?.addEventListener('click', async () => {
+        const type = document.querySelector('#muscu-quiz-setup .btn-option.active')?.dataset.type;
+
+        // Block start if AI selected and not connected
+        if (type === 'ai' && !currentUser) return;
+
+        let lang = 'c';
+        let themeId = 'all';
+        let diff = 'all';
+        let length = 20;
+        let selectedConvIds = [];
+
+        if (type === 'standard') {
+            lang = document.getElementById('quiz-lang-select').value;
+            themeId = document.getElementById('quiz-theme-select').value;
+            diff = document.getElementById('quiz-diff-select').value;
+            length = parseInt(document.getElementById('quiz-length-select').value);
+        } else {
+            // AI MODE
+            lang = document.getElementById('quiz-ai-lang-select').value;
+            // Get Selected Convs
+            const checkboxes = document.querySelectorAll('#quiz-conv-selector input[type="checkbox"]:checked');
+            checkboxes.forEach(cb => selectedConvIds.push(cb.value));
+            length = 5; // Fixed for AI to avoid long generation times
+        }
+
+        startQuiz(type, lang, themeId, diff, length, selectedConvIds);
     });
 
-    async function startQuiz(type, lang, themeId, diff, length) {
-        addToHistory('quizzes', `Quiz ${lang.toUpperCase()} (${diff})`);
+    async function startQuiz(type, lang, themeId, diff, length, selectedConvIds = []) {
+        addToHistory('quizzes', `Quiz ${lang.toUpperCase()} ${type === 'ai' ? '(MIJOTÉ)' : ''}`);
         openMuscuView('muscu-active-quiz');
         const feedback = document.getElementById('quiz-feedback');
         feedback.style.display = 'none';
@@ -1640,61 +2514,237 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         questions = theme.questions.map(q => ({ ...q, themeId: theme.id, themeName: theme.name }));
                     }
                 }
-            } else {
-                // Fallback to hardcoded QUIZ_DB
-                questions = QUIZ_DB[lang] || QUIZ_DB['c'];
+            }
+
+            // FALLBACK / MERGE: If JSON failed or yielded 0 questions (or strangely few), USE HARDCODED DB
+            // This ensures we NEVER show empty quizzes
+            if (!questions || questions.length < 5) {
+                console.warn("JSON Data missing or empty. Using HARDCODED DB for robustness.");
+                const dbQuestions = QUIZ_DB[lang] || QUIZ_DB['c'];
+                questions = questions.concat(dbQuestions);
+            }
+
+            // CLEANUP: Filter out bad objects
+            questions = questions.filter(item => item && (item.q || item.question));
+
+            if (questions.length === 0) {
+                alert("ERREUR CRITIQUE: Aucune question disponible pour ce mode. Contacte le dev.");
+                openMuscuView('muscu-menu');
+                return;
             }
 
             // Shuffle
             questions = shuffleArray([...questions]);
 
-            // Filter by Difficulty (Mock Logic for now - assume questions might have 'difficulty' field later)
-            // If we had difficulty in JSON, we would filter here.
-            // For now, we ignore 'diff' or just shuffle.
-
+            // Slice by Length
             // Slice by Length
             if (questions.length > length) questions = questions.slice(0, length);
 
+            // INITIALIZE QUIZ STATE CRITICAL FIX
             currentQuizState = { questions: questions, idx: 0, score: 0 };
+            console.log("Quiz Initialized with:", questions.length, "questions");
+
+            // Render First Question Immediately
             renderQuestion();
+
         } else {
-            // IA QUIZ
-            // ... existing IA logic (simplified for length) ...
-            // For now we keep default IA logic but could inject 'length' in prompt
-            document.getElementById('quiz-question-text').textContent = "L'IA analyse ton dossier (Génération)...";
-            document.getElementById('quiz-options-list').innerHTML = "";
-            document.getElementById('quiz-code-container').innerHTML = ""; // Clear IDE
+            // IA QUIZ (MIJOTÉ SUR MESURE)
+            // 1. SETUP UI
+            const qTextEl = document.getElementById('quiz-question-text');
+            const qOptsEl = document.getElementById('quiz-options-list');
+            let qCodeEl = document.getElementById('quiz-code-container');
+            const qActions = document.getElementById('quiz-actions');
+
+            // CRITICAL FIX: Create quiz-code-container if missing
+            if (!qCodeEl) {
+                qCodeEl = document.createElement('div');
+                qCodeEl.id = 'quiz-code-container';
+                qTextEl.after(qCodeEl);
+            }
+
+            qTextEl.textContent = "1/3 Extraction des dossiers suspects...";
+            qTextEl.style.color = "#e0fff0";
+            qOptsEl.innerHTML = '<div style="padding:20px; text-align:center; color:#888;"><i class="fas fa-circle-notch fa-spin fa-2x"></i></div>';
+            if (qCodeEl) qCodeEl.innerHTML = "";
+            if (qActions) qActions.style.display = "none"; // Hide buttons during loading
 
             try {
-                // Generate N questions
-                const userHistory = localStorage.getItem('cqcd_chat_history_v1') || "Pas d'historique.";
-                const prompt = `Génère ${length} questions de quiz QCM sur le langage ${lang}. 
-                Niveau : ${diff === 'hard' ? 'DIFFICILE/EXPERT' : 'DÉBUTANT'}.
-                Adapté à l'historique suivant : "${userHistory.substring(0, 500)}...".
-                FORMAT JSON STRICT: [{"q":"Question", "code":"(optionnel)", "opts":["A","B","C","D"], "correct":index_0_3, "explanation":"Pourquoi..."], ...]`;
+                // 2. EXTRACT DATA
+                let fullChatContext = "";
+                let fullCodeContext = "";
+
+                if (currentUser && currentUser.data && currentUser.data.conversations) {
+                    const targetConvs = currentUser.data.conversations.filter(c => selectedConvIds.includes(c.id));
+
+                    if (targetConvs.length === 0) throw new Error("Aucun dossier sélectionné (Coche une case !)");
+
+                    targetConvs.forEach(c => {
+                        // Code Snapshot
+                        if (c.codeSnapshot && c.codeSnapshot.length > 10) {
+                            fullCodeContext += `\n[PREUVE CODE - DOSSIER "${c.title}"]:\n${c.codeSnapshot.substring(0, 800)}\n`;
+                        }
+                        // Chat Messages
+                        if (c.messages && Array.isArray(c.messages)) {
+                            c.messages.forEach(m => {
+                                fullChatContext += `${m.isUser ? "Suspect" : "Inspecteur"}: ${m.content.substring(0, 150)}\n`;
+                            });
+                        }
+                    });
+                } else {
+                    // Robustness: If data is missing/malformed but we somehow got here
+                    throw new Error("Données de conversation corrompues ou inaccessibles. Rafraîchis la page.");
+                }
+
+                if (fullChatContext.length < 10) fullChatContext = "(Le suspect est resté muet)";
+                if (fullCodeContext.length < 10) fullCodeContext = "(Aucune preuve trouvée sur la scène de crime)";
+
+                // 3. BUILD PROMPT
+                qTextEl.textContent = "2/3 Interrogatoire du Chef (Génération)...";
+
+                const prompt = `
+                Rôle : Tu es un examinateur impitoyable de code (Style 'Street/Strict').
+                Tâche : Génère 5 questions de QCM (Quiz) sur le langage ${lang.toUpperCase()}.
+                Niveau : AVANCÉ.
+                
+                [PIÈCES A CONVICTION (CODE)]
+                ${fullCodeContext}
+                
+                [TRANSCRIPTIONS (CHAT)]
+                "${fullChatContext.substring(0, 3000)}"
+                
+                CONSIGNE ULTIME : 
+                1. Analyse le code fourni ci-dessus. Trouve les failles, les erreurs ou les concepts utilisés.
+                2. Base tes questions DESSUS. Si le code utilise des pointeurs, pose des questions sur les pointeurs.
+                3. Une question doit contenir un petit bout de code en exemple.
+
+                [FORMAT JSON OBLIGATOIRE]
+                [
+                  {
+                    "q": "L'intitulé de la question",
+                    "code": "int preuve = 0; // code optionnel",
+                    "opts": ["Réponse A", "Réponse B", "Réponse C", "Réponse D"],
+                    "correct": 0,
+                    "explanation": "Pourquoi t'es nul."
+                  }
+                ]
+                `;
+
+                // 4. CALL API (Timeout 60s for analysis)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 60000);
 
                 const r = await fetch(MISTRAL_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         model: "mistral-small-latest",
                         messages: [{ role: "user", content: prompt }]
-                    })
+                    }),
+                    signal: controller.signal
                 });
 
-                const d = await r.json();
-                let txt = d.choices[0].message.content;
-                if (txt.includes('```json')) txt = txt.split('```json')[1].split('```')[0];
-                const generatedQuestions = JSON.parse(txt);
+                clearTimeout(timeoutId);
 
+                // 5. PARSE RESPONSE
+                qTextEl.textContent = "3/3 Analyse des aveux (Validation)...";
+
+                if (!r.ok) throw new Error("Erreur Mistral: " + r.status);
+                const d = await r.json();
+                if (!d.choices || !d.choices[0] || !d.choices[0].message) throw new Error("Réponse vide du QG.");
+
+                let txt = d.choices[0].message.content;
+
+                // Cleanup JSON
+                const firstBracket = txt.indexOf('[');
+                const lastBracket = txt.lastIndexOf(']');
+                if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+                    txt = txt.substring(firstBracket, lastBracket + 1);
+                } else if (txt.includes('```')) {
+                    txt = txt.split('```')[1].replace('json', '');
+                }
+
+                let generatedQuestions;
+                try {
+                    generatedQuestions = JSON.parse(txt);
+                } catch (e) { throw new Error("Rapport illisible (JSON cassé)."); }
+
+                if (!Array.isArray(generatedQuestions)) throw new Error("Format de rapport invalide.");
+
+                // SUCCESS -> RENDER
+                qActions.style.display = "block"; // Show buttons back
                 currentQuizState = { questions: generatedQuestions, idx: 0, score: 0 };
                 renderQuestion();
 
             } catch (e) {
-                alert("Erreur IA: " + e.message + ". Retour au standard.");
-                openMuscuView('muscu-quiz-setup');
+                console.error(e);
+                let msg = e.message;
+                if (e.name === 'AbortError') msg = "Le Chef ne répond pas (Timeout 20s).";
+
+                // ERROR STATE UI (NO FALLBACK)
+                qTextEl.style.color = "#e74c3c";
+                qTextEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ÉCHEC DE LA MISSION`;
+
+                // CRITICAL FIX: Ensure qCodeEl exists before writing to it
+                let container = qCodeEl;
+                if (!container) {
+                    container = document.createElement('div');
+                    container.id = 'quiz-code-container'; // Create it so we can show error
+                    qTextEl.after(container);
+                }
+
+                container.innerHTML = `
+                    <div style="color:#e74c3c; border:1px solid #e74c3c; padding:15px; margin-top:20px; background:rgba(231,76,60,0.1);">
+                        <strong>RAISON :</strong> ${msg}<br><br>
+                        Le suspect a gardé le silence, le QG est surchargé, ou vos données sont corrompues.
+                    </div>
+                `;
+                qOptsEl.innerHTML = `<div style="text-align:center; margin-top:20px;"><button onclick="openMuscuView('muscu-quiz-setup')" class="btn-hero" style="width:100%;">RETOURNER AU PLANNING</button></div>`;
             }
         }
+    }
+
+
+
+    // UTILITY: Simple Formatter for One-Liner Code
+    function quickCodeFormatter(code) {
+        if (!code) return "";
+        if (code.includes('\n') && code.split('\n').length > 1) return code; // Already multiline
+
+        let res = "";
+        let indent = 0;
+        let inParen = 0;
+        code = code.trim();
+
+        for (let i = 0; i < code.length; i++) {
+            const c = code[i];
+
+            if (c === '(') inParen++;
+            if (c === ')') inParen--;
+
+            if (c === '}') {
+                indent = Math.max(0, indent - 1);
+                // Check if previous char was newline to avoid double
+                if (res.endsWith('\n  ' + '  '.repeat(indent))) {
+                    // Already indented for next line, just put }
+                    res += '}';
+                } else {
+                    res += '\n' + '  '.repeat(indent) + '}';
+                }
+                continue;
+            }
+
+            res += c;
+
+            if (c === '{') {
+                indent++;
+                res += '\n' + '  '.repeat(indent);
+            } else if (c === ';' && inParen === 0) {
+                res += '\n' + '  '.repeat(indent);
+                // Skip next space if exists
+                if (code[i + 1] === ' ') i++;
+            }
+        }
+        return res.trim();
     }
 
     function renderQuestion() {
@@ -1744,12 +2794,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 theme: 'default', // We will override CSS
                 readOnly: 'nocursor',
                 lineNumbers: true,
+                lineWrapping: true, // FIX: Wrap long lines so it doesn't look ugly
                 viewportMargin: Infinity
             });
-            cm.setValue(qData.code);
+
+            const formattedCode = quickCodeFormatter(qData.code);
+            cm.setValue(formattedCode);
+
             // Height Auto
-            const height = qData.code.split('\n').length * 20 + 30;
-            cm.setSize("100%", Math.min(height, 300) + "px");
+            // FIX: Giving it a bit more breathing room
+            const height = formattedCode.split('\n').length * 20 + 40;
+            cm.setSize("100%", Math.min(height, 400) + "px");
+
+            // UI FIX: Spacing between code and options
+            container.style.marginBottom = "30px";
+            container.style.marginTop = "15px";
+
         } else {
             if (codeContainer) codeContainer.style.display = 'none';
         }
@@ -1775,6 +2835,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     function handleAnswer(selectedIndex, btnElement) {
+        // UI FIX: More space at bottom
+        const container = document.getElementById('muscu-active-quiz');
+        if (container) container.style.paddingBottom = "50px";
+
         // Disable all
         document.querySelectorAll('.quiz-option-btn').forEach(b => b.style.pointerEvents = 'none');
 
@@ -1920,13 +2984,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         container.innerHTML = '';
         container.className = 'course-columns-wrapper';
 
-        const langs = ['c', 'javascript', 'python', 'java', 'php'];
+        const langs = ['c', 'python', 'java'];
         const langNames = {
             'c': 'C (Guerrier)',
-            'javascript': 'JS (Web)',
             'python': 'Py (Data)',
-            'java': 'Java (Corpo)',
-            'php': 'PHP (Old)'
+            'java': 'Java (Corpo)'
         };
 
         langs.forEach(lang => {
@@ -1972,16 +3034,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         document.getElementById('course-title').textContent = courseData.title;
 
         // Better Markdown Parser logic for deep content
+        // 1. Escape HTML special chars (EXCEPT if we already used HTML tags manually, which we did. 
+        //    So we must be careful. Actually, since we use template literals with explicit HTML, 
+        //    we should probably SKIP auto-escaping < > or it will break our manual HTML.)
+        //    => We remove the generic .replace(/</g, "&lt;") because we inject valid HTML now.
+
+        // 2. Handle Code Blocks (Triple backticks)
         let htmlContent = courseData.content
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/\n\n/g, '<br><br>') // Double newline = paragraph
+            .replace(/```(\w+)([\s\S]*?)```/g, '<div class="code-block-wrapper"><pre><code class="lang-$1">$2</code></pre></div>')
+            .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+
+        // 3. Handle Newlines -> BR (But only if not inside HTML tags ideally, but simple replace is okay for now)
+        // We avoid replacing newlines that are just formatting in the JS code string.
+        // Actually, since we used HTML, we don't need auto-newline replacement as much if we use <p>.
+        // But for mixed content, let's keep it but be gentle.
+        // htmlContent = htmlContent.replace(/\n\n/g, '<br><br>'); 
+        // ^ Removed auto-br because we use <p> tags now.
+
+        // 4. Simple Markdown Headers (Legacy support if needed)
+        htmlContent = htmlContent
             .replace(/### (.*)/g, '<h3>$1</h3>')
             .replace(/## (.*)/g, '<h2>$1</h2>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-            .replace(/```(\w+)([\s\S]*?)```/g, '<pre><code class="lang-$1">$2</code></pre>');
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
         document.getElementById('course-body').innerHTML = htmlContent;
 
@@ -2046,8 +3120,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="mini-ide-wrapper">
                             <textarea id="code-${exId}"></textarea>
                         </div>
-                        <button class="btn-hero btn-submit-ex" data-exid="${exId}" style="margin-top:10px;">SOUMETTRE</button>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <button class="btn-hero btn-submit-ex" data-exid="${exId}" style="flex:1;">SOUMETTRE</button>
+                            <button class="btn-box btn-show-solution" data-exid="${exId}" style="flex:1; border-color:#f1c40f; color:#f1c40f;">CORRECTION</button>
+                        </div>
                         <div id="feedback-${exId}" class="terminal-box" style="display:none;"></div>
+                        <div id="solution-${exId}" class="terminal-box" style="display:none; border-color:#f1c40f; color:#f1c40f; margin-top:10px;">
+                            <strong>SOLUTION DU CHEF :</strong><br>
+                            <pre style="background:rgba(0,0,0,0.5); padding:10px; margin-top:5px; white-space:pre-wrap;">${ex.solution || "// Pas de solution officielle pour l'instant.\n// Débrouille-toi avec l'IA."}</pre>
+                        </div>
                     </div>
                 `;
                 exArea.appendChild(wrapper);
@@ -2094,6 +3175,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 btn.onclick = (e) => handleCourseSubmit(e.target.dataset.exid);
             });
 
+            // Listener for Solution Buttons
+            document.querySelectorAll('.btn-show-solution').forEach(btn => {
+                btn.onclick = (e) => {
+                    const exId = e.target.dataset.exid;
+                    const solDiv = document.getElementById(`solution-${exId}`);
+                    if (solDiv) {
+                        const isHidden = solDiv.style.display === 'none';
+                        solDiv.style.display = isHidden ? 'block' : 'none';
+                        e.target.textContent = isHidden ? 'CACHER CORRECTION' : 'CORRECTION';
+                    }
+                };
+            });
+
         } else {
             exArea.style.display = 'none';
         }
@@ -2122,13 +3216,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         1. Si c'est BON : Commence par "[SUCCES]" (obligatoire) puis lâche un "C'est carré" ou un "Propre" avec un ton fier mais arrogant.
         2. Si c'est FAUX : Commence par "[ECHEC]" (obligatoire). Insulte-le gentiment (ex: "T'es sérieux ?", "Miskine", "Wesh l'effort ??"). Explique comme à un teubé. Pas de solution directe.
         
-        Style : Sarcasme, tutoiement, argot, emojis interdits par l'élève donc évite-les.
+        Style : Sarcasme, tutoiement, argot.
+        INTERDICTION FORMELLE D'UTILISER DES EMOJIS. JE TE TUE SI TU EN METS.
         `;
 
         try {
             const r = await fetch(MISTRAL_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     model: "mistral-small-latest",
                     messages: [{ role: "user", content: prompt }]
