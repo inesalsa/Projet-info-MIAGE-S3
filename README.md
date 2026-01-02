@@ -1,8 +1,8 @@
-# Projet-info-MIAGE-S3
-C.Q.C.D_ (C'est Quoi Ce Code)
+
+#C.Q.C.D_ (C'est Quoi Ce Code)
 C.Q.C.D est une plateforme d'apprentissage interactive nouvelle génération pour les étudiants en informatique. Elle combine un éditeur de code multi-langage, un système de tutorat par Intelligence Artificielle (Mistral AI) et des modules de formation ludiques.
 L'application se distingue par la personnalité de son IA, "Le Chef", qui prodigue des conseils et analyse vos erreurs avec un ton direct, humoristique et sans filtre.
-I/Installation et Démarrage rapide
+#I/Installation et Démarrage rapide
 a. Prérequis
 Pour faire fonctionner le moteur de compilation et l'IA, assurez-vous d'avoir installé :
 Node.js (v14 ou supérieur) : Pour faire tourner le serveur backend.
@@ -23,9 +23,9 @@ Double-cliquez sur start.bat.
 Le script va démarrer le serveur Node.js et ouvrir automatiquement votre navigateur sur http://localhost:3000.
 Lancement manuel :
 node server.js
-# Puis ouvrez http://localhost:3000 dans votre navigateur
+ Puis ouvrez http://localhost:3000 dans votre navigateur
 
-II/ Guide d'utilisation
+#II/ Guide d'utilisation
 a. L'Éditeur & Compilation
 Édition : Écrivez votre code dans l'éditeur central (propulsé par CodeMirror). La coloration syntaxique s'adapte automatiquement au langage choisi.
 Exécution : Cliquez sur "Compile". Le code est envoyé au serveur, exécuté dans un environnement temporaire, et le résultat (ou l'erreur) s'affiche dans le terminal en bas de page.
@@ -51,6 +51,6 @@ Frontend : HTML5, CSS3, JavaScript (Vanilla).
 Backend : Node.js.
 IA : API Mistral AI (Modèle mistral-small-latest).
 Design : FontAwesome (Icons), Google Fonts (Share Tech Mono).
-🐛 Un dernier mot...
+# Un dernier mot...
 Si une petite chenille vient vous raconter une blague ou une citation de Shakespeare entre deux bugs, c'est normal : c'est l'esprit de C.Q.C.D.
 Bon code, et n'écoutez pas trop les insultes du Chef !
